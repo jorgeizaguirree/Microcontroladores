@@ -26,7 +26,7 @@ int pos_enemy_x = 16;
 int pos_enemy_y = 0;
 char chr = 'o';
 char enemy = 'x';
-long tick_speed = 1000;
+long tick_speed = 100;
 long prev_time = 0;
 int enemy_number = 0;
 int rng = 0;
@@ -97,9 +97,8 @@ void enemy_movement() {
       lcd.print(" ");
       if (pos_enemy_x != 0) {
         pos_enemy_x -= 1;
-        lcd.setCursor(pos_enemy_x, rng);
+        lcd.setCursor(pos_enemy_x, pos_enemy_y);
         lcd.print(enemy);
-        pos_enemy_y = rng;
       } else {
         enemy_number = 0;
       }
