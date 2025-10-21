@@ -30,6 +30,8 @@ long tick_speed = 100;
 long prev_time = 0;
 int enemy_number = 0;
 int rng = 0;
+int arr_pos_enemy[5]; // 
+
 
 void setup() /*----( SETUP: RUNS ONCE )----*/
 {
