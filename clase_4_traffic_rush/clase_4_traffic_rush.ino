@@ -31,16 +31,16 @@ long prev_time = 0;
 int enemy_number = 0;
 int rng = 0;
 int arr_pos_enemy[5]; // 
-
+ 
 
 void setup() /*----( SETUP: RUNS ONCE )----*/
 {
-  lcd.begin(16, 2);  // start the lcd object
+  lcd.begin(16, 2);  // start the lcd object 2x16
   delay(20);
-  lcd.setCursor(2, 0);
+  lcd.setCursor(2, 0); // x=2 y=0
   lcd.print("TRAFFIC RUSH");
   lcd.setCursor(0, 1);
-  lcd.print("Press any button");
+  lcd.print("Press any button"); //
   delay(20);
 
 } /*--(end setup )---*/

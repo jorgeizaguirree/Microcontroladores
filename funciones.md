@@ -1,0 +1,3 @@
+- lcd.begin
+- lcd.setCursor
+- lcd.print
