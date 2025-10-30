@@ -26,24 +26,6 @@ int convertir(int a) {
 
 // the loop function runs over and over again forever
 void loop() {
-  /*
-  Serial.println("Enciendo el led");
-  digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
-  sbi(PORTD, PORTD1);
-  sbi (PORTB, PORTB6);
-  valor = analogRead(A1);
-  Serial.print("El Paso Por Cero está dando valor: ");
-  Serial.println(valor);
-  delay(40);                      // wait for a second
-  Serial.println("Apago el led");
-  digitalWrite(LED_BUILTIN, LOW);   // turn the LED off by making the voltage LOW
-  cbi(PORTD, PORTD1);
-  cbi(PORTB, PORTB6);
-  valor = analogRead(A1);
-  Serial.print("El Paso Por Cero está dando valor: ");
-  Serial.println(valor);
-  delay(6);                      // wait for a second
-  */
   int prev_time = millis();
   while (millis() - prev_time < 1000) {
     valor = convertir(analogRead(A1));
@@ -56,6 +38,6 @@ void loop() {
   }
   Serial.print("Ha habido ");
   Serial.print(count);
-  Serial.println(" pasos por cero");
+  Serial.println(" pasos por cero este segundo");
   count = 0;
 }
