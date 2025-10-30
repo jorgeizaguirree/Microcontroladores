@@ -6,7 +6,7 @@
 [ ] Reescribir librería LyquidCrystal.
 [X] Detección y cuantificación por segundo de los pasos por cero generados por el Detector de paso por cero.
 [X] Optotriac conectado con la bombilla encendiendo y apagando al 100%.
-[ ] Encendido de la bombilla al 50% de potencia mediante el disparo del Optotriac.
+[X] Encendido de la bombilla al 50% de potencia mediante el disparo del Optotriac.
 [ ] Lectura correcta de los valores devueltos por el sensor de temperatura y la célula LDR.
 
 
