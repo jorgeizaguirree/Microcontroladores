@@ -78,6 +78,7 @@ int fi;
 // VARIABLES GENERALES
 // =============================
 
+float temperatura = 0.0;
 int posicion = 0;
 int opcion = 0;
 int boton = 0;
@@ -86,6 +87,7 @@ bool blink_state = true;
 int pantalla = pDISPLAY;
 int display = dAPAGADO;
 int comando = cTEMPERATURA;
+char buffer[10];
 char arr_display[][15] = { "APAGADO", "ENCENDIDO", "MANUAL", "TERMOSTATO", "POTENCIOMETRO" };
 char arr_comando[][15] = { "TEMPERATURA", "ENCENDER", "MANUAL", "TERMOSTATO", "APAGAR", "PARAMETROS", "RESET", "POTENCIOMETRO" };
 
@@ -307,14 +309,64 @@ void blink() {
   }
 }
 
+/*
+Función que muestra en el display el modo Apagado y la Temperatura leída por el sensor
+*/
+
 void print_dAPAGADO() {
-  lcd_setCursor(4, 0);
+  lcd_setCursor(0, 0);
   lcd_print(arr_display[dAPAGADO]);
-  delay(2000);
+  lcd_setCursor(10,0);
+  delay(500);
+  dtostrf(temperatura, 4, 2, buffer);
+  lcd_print(buffer);
+  lcd_print("C");
   lcd_setCursor(2, 1);
-  lcd_print("press select");
-  delay(300);
+  lcd_print("select command");
+  delay(500);
 }
+
+
+/*
+Función que muestra en el display el modo Encendido y la  Temperatura leída por el sensor.
+*/
+void print_dENCENDIDO() {
+  lcd_setCursor(0, 0);
+  lcd_print(arr_display[dENCENDIDO]);
+  lcd_setCursor(10,0);
+  delay(500);
+  dtostrf(temperatura, 4, 2, buffer);
+  lcd_print(buffer);
+  lcd_print("C");
+  lcd_setCursor(2, 1);
+  lcd_print("select command");
+  delay(500);
+}
+
+/*
+Función que muestra en el display el modo Control manual, la Temperatura leída por el sensor 
+y porcentaje de funcionamiento del agente calefactor.
+TO DO
+*/
+void print_dMANUAL() {}
+
+/*
+Función que muestra en el display el modo Termostato la Temperatura leída por el sensor, 
+temperatura objetivo y porcentaje de funcionamiento del agente calefactor.
+TO DO
+*/
+void print_dTERMOSTATO() {}
+
+/*
+Función que muestra en el display el modo Potenciómetro, la Temperatura leída por el sensor
+y porcentaje de funcionamiento del agente calefactor.
+TO DO
+*/
+void print_dPOTENCIOMETRO() {}
+
+/*
+Función que muestra en pantalla la lista de comandos, navegable mediante botones
+*/
 void print_COMANDOS(bool change_pending) {
   if (change_pending) {
     lcd_clear();
@@ -331,28 +383,86 @@ void print_COMANDOS(bool change_pending) {
   } else blink();
 }
 
-void print_dENCENDIDO() {}
-
-void print_dMANUAL() {}
-
-void print_dTERMOSTATO() {}
-
-void print_dPOTENCIOMETRO() {}
-//{ "TEMPERATURA", "ENCENDER", "MANUAL", "TERMOSTATO", "APAGAR", "PARAMETROS", "RESET", "POTENCIOMETRO" };
+/*
+Función Temperatura: Establece la temperatura objetivo en grados.
+TO DO
+*/
 void comando_TEMPERATURA() {}
+
+/*
+Función Encender: Enciende el agente calefactor suministrando el 100% de energía.
+TO DO
+*/
 void comando_ENCENDER() {}
+
+/*
+Función Control manual: Establece el porcentaje de funcionamiento dal agente calefactor
+y regula la energía suministrada.
+TO DO
+*/
 void comando_MANUAL() {}
+
+/*
+Función Termostato: Regula la energía suministrada al agente calefactor manteniendo 
+la temperatura objetivo establecida.
+TO DO
+*/
 void comando_TERMOSTATO() {}
-void comando_APAGAR() {}
+
+/*
+Función Apagar: Apaga el agente calefactor.
+*/
+void comando_APAGAR() {
+  display = dAPAGADO;
+  pantalla = pDISPLAY;
+  posicion = 0;
+  print_dAPAGADO();
+}
+
+/*
+Función Parámetros: Establece las constantes del filtro PID.
+TO DO
+*/
 void comando_PARAMETROS() {}
+
+/*
+Función Reset: Inicializa todos los parámetros (los pone a cero).
+TO DO
+*/
 void comando_RESET() {}
+
+/*
+Función Potenciómetro: Regula la energía sumimistrada al agente calefactor 
+por medio del potenciómetro.
+TO DO
+*/
 void comando_POTENCIOMETRO() {}
 
+/*
+Función auxiliar para activar y configurar potencia del agente calefactor
+TO DO
+*/
 
+void activar_agente_calefactor(){
+
+}
+
+
+/*
+Función que permite leer la temperatura de un sensor de temperatura conectado al pin a1
+gris masa, morado 5V, blanco señal
+*/
+
+void leer_temperatura_pin_a1(){
+  int valor = analogRead(A1);
+  temperatura = (valor * 5.0 * 100.0)/1024.0;
+  delay(50);
+}
 
 
 void setup() {
   Serial.begin(9600);
+  pinMode(A1, INPUT);
   lcd_begin(16, 2);
   print_dAPAGADO();
 
@@ -364,6 +474,7 @@ void setup() {
 
 void loop() {
   int boton = Leer_teclado_serial();
+  leer_temperatura_pin_a1();
   if (pantalla == pDISPLAY) {
     if (boton == btnSELECT) {
       lcd_clear();
