@@ -544,21 +544,25 @@ void comando_MANUAL() {
   print_dMANUAL(true);
 
   int boton = btnNONE;
-  // Bucle para ajustar la potencia manualmente con el potenciómetro
+  // Bucle para ajustar la potencia manualmente con BOTONES
   while (boton != btnSELECT) {
-    gestionar_fase_bombilla(); // <--- IMPORTANTE: Mantener la bombilla
-                               // funcionando
-
-    // Leer potenciómetro y actualizar potencia
-    leer_potenciometro_pin_a2(); // Actualiza la variable 'potenciometro'
-    activar_agente_calefactor(potenciometro);
-
-    // Leer temperatura para mostrarla en pantalla
-    leer_temperatura_pin_a1();
-
-    print_dMANUAL(false);
+    gestionar_fase_bombilla(); // Mantener la bombilla funcionando
 
     boton = Leer_teclado_serial();
+
+    if (boton == btnUP) {
+      potenciometro += 5; // Subir 5%
+      if (potenciometro > 100)
+        potenciometro = 100;
+      activar_agente_calefactor(potenciometro);
+      print_dMANUAL(false);
+    } else if (boton == btnDOWN) {
+      potenciometro -= 5; // Bajar 5%
+      if (potenciometro < 0)
+        potenciometro = 0;
+      activar_agente_calefactor(potenciometro);
+      print_dMANUAL(false);
+    }
   }
 }
 
@@ -690,31 +694,12 @@ Función Potenciómetro: Regula la energía suministrada al agente
 calefactor(bombilla) por medio del potenciómetro. TO DO
 */
 void comando_POTENCIOMETRO() {
-  bool configurado = false;
-  lcd_clear();
-  lcd_setCursor(0, 0);
-  lcd_print(arr_comando[cPOTENCIOMETRO]);
-  while (!configurado) {
-    Leer_teclado_serial();
-    if (boton != btnSELECT) {
-      leer_temperatura_pin_a1();
-      leer_potenciometro_pin_a2();
-      lcd_setCursor(6, 1);
-      lcd_print("     ");
-      lcd_setCursor(6, 1);
-      itoa(potenciometro, buffer, 10);
-      lcd_print(buffer);
-      lcd_print("%");
-      lcd_setCursor(10, 1);
-    } else {
-      activar_agente_calefactor(potenciometro);
-      pantalla = pDISPLAY;
-      posicion = 0;
-      display = dPOTENCIOMETRO;
-      print_dPOTENCIOMETRO(true);
-      configurado = true;
-    }
-  }
+  display = dPOTENCIOMETRO;
+  pantalla = pDISPLAY;
+  posicion = 0;
+  print_dPOTENCIOMETRO(true);
+  // No hacemos bucle aquí, dejamos que el loop principal se encargue del
+  // control
 }
 
 /*
@@ -853,6 +838,13 @@ void loop() {
 
     // Actualizamos la variable 'potenciometro' para que se vea en pantalla
     potenciometro = potencia_agente;
+  }
+  // -----------------------------
+
+  // --- LÓGICA DEL POTENCIÓMETRO ---
+  if (display == dPOTENCIOMETRO) {
+    leer_potenciometro_pin_a2();              // Lee el valor (0-100)
+    activar_agente_calefactor(potenciometro); // Aplica la potencia
   }
   // -----------------------------
 
