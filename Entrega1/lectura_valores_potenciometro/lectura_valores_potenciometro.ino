@@ -5,14 +5,14 @@ int valor;
 void setup() {
   Serial.begin(57600);
   // initialize digital pin LED_BUILTIN as an output.
-  pinMode(A1, INPUT);
+  pinMode(A2, INPUT);
 }
 
 
 
 // the loop function runs over and over again forever
 void loop() {
-  valor = analogRead(A1);
+  valor = analogRead(A2);
   Serial.print("El potenciometro está dando valor: ");
   Serial.print(valor);
   Serial.println("  ... Buscando siguiente tecla");
