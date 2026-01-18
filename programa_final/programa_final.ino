@@ -86,6 +86,14 @@ int fi;
 
 float temperatura = 0.0;
 float temperatura_objetivo = 25.0; // Temperatura que queremos alcanzar
+// Variables PID
+double Kp = 2.0;
+double Ki = 5.0;
+double Kd = 1.0;
+double error_acumulado = 0;
+double error_anterior = 0;
+unsigned long last_pid_time = 0;
+
 int potenciometro = 0;
 int posicion = 0;
 int opcion = 0;
@@ -410,7 +418,8 @@ void print_dMANUAL(bool first_time) {
     lcd_print("C");
 
     lcd_setCursor(9, 1);
-    dtostrf(potenciometro, 5, 2, buffer); // funcion para pasar de float a char[]
+    dtostrf(potenciometro, 5, 2,
+            buffer); // funcion para pasar de float a char[]
     lcd_print(buffer);
     lcd_print("%");
   }
@@ -535,26 +544,21 @@ void comando_MANUAL() {
   print_dMANUAL(true);
 
   int boton = btnNONE;
-  // Bucle para ajustar la potencia manualmente
+  // Bucle para ajustar la potencia manualmente con el potenciómetro
   while (boton != btnSELECT) {
     gestionar_fase_bombilla(); // <--- IMPORTANTE: Mantener la bombilla
                                // funcionando
 
-    boton = Leer_teclado_serial();
+    // Leer potenciómetro y actualizar potencia
+    leer_potenciometro_pin_a2(); // Actualiza la variable 'potenciometro'
+    activar_agente_calefactor(potenciometro);
 
-    if (boton == btnUP) {
-      potenciometro += 5; // Subir 5%
-      if (potenciometro > 100)
-        potenciometro = 100;
-      activar_agente_calefactor(potenciometro);
-      print_dMANUAL(false);
-    } else if (boton == btnDOWN) {
-      potenciometro -= 5; // Bajar 5%
-      if (potenciometro < 0)
-        potenciometro = 0;
-      activar_agente_calefactor(potenciometro);
-      print_dMANUAL(false);
-    }
+    // Leer temperatura para mostrarla en pantalla
+    leer_temperatura_pin_a1();
+
+    print_dMANUAL(false);
+
+    boton = Leer_teclado_serial();
   }
 }
 
@@ -578,6 +582,7 @@ void comando_APAGAR() {
   display = dAPAGADO;
   pantalla = pDISPLAY;
   posicion = 0;
+  activar_agente_calefactor(0); // Apagar la bombilla
   print_dAPAGADO(true);
 }
 
@@ -585,13 +590,100 @@ void comando_APAGAR() {
 Función Parámetros: Establece las constantes del filtro PID.
 TO DO
 */
-void comando_PARAMETROS() {}
+void comando_PARAMETROS() {
+  bool salir = false;
+  int parametro_seleccionado = 0; // 0:Kp, 1:Ki, 2:Kd
+
+  lcd_clear();
+
+  while (!salir) {
+    gestionar_fase_bombilla(); // Mantener control de fase
+
+    // Mostrar parámetro actual
+    lcd_setCursor(0, 0);
+    if (parametro_seleccionado == 0)
+      lcd_print("Kp: ");
+    else if (parametro_seleccionado == 1)
+      lcd_print("Ki: ");
+    else
+      lcd_print("Kd: ");
+
+    // Mostrar valor
+    double valor_actual;
+    if (parametro_seleccionado == 0)
+      valor_actual = Kp;
+    else if (parametro_seleccionado == 1)
+      valor_actual = Ki;
+    else
+      valor_actual = Kd;
+
+    dtostrf(valor_actual, 4, 1, buffer);
+    lcd_print(buffer);
+
+    lcd_setCursor(0, 1);
+    lcd_print("UP/DW:Val SEL:Ok");
+
+    int boton = Leer_teclado_serial();
+
+    if (boton == btnUP) {
+      if (parametro_seleccionado == 0)
+        Kp += 0.1;
+      else if (parametro_seleccionado == 1)
+        Ki += 0.1;
+      else
+        Kd += 0.1;
+    } else if (boton == btnDOWN) {
+      if (parametro_seleccionado == 0)
+        Kp -= 0.1;
+      else if (parametro_seleccionado == 1)
+        Ki -= 0.1;
+      else
+        Kd -= 0.1;
+    } else if (boton == btnRIGHT) {
+      parametro_seleccionado++;
+      if (parametro_seleccionado > 2)
+        parametro_seleccionado = 0;
+      lcd_clear();
+    } else if (boton == btnLEFT) {
+      parametro_seleccionado--;
+      if (parametro_seleccionado < 0)
+        parametro_seleccionado = 2;
+      lcd_clear();
+    } else if (boton == btnSELECT) {
+      salir = true;
+      pantalla = pDISPLAY;
+      display = dAPAGADO; // Volver al menú principal
+      print_dAPAGADO(true);
+    }
+
+    delay(100); // Pequeño delay para no refrescar tan rápido
+  }
+}
 
 /*
 Función Reset: Inicializa todos los parámetros (los pone a cero).
 TO DO
 */
-void comando_RESET() {}
+void comando_RESET() {
+  // Resetear variables PID a valores por defecto
+  Kp = 2.0;
+  Ki = 5.0;
+  Kd = 1.0;
+  error_acumulado = 0;
+  error_anterior = 0;
+
+  // Resetear temperatura objetivo
+  temperatura_objetivo = 25.0;
+
+  // Apagar bombilla
+  activar_agente_calefactor(0);
+
+  // Volver a pantalla de inicio
+  display = dAPAGADO;
+  pantalla = pDISPLAY;
+  posicion = 0;
+  print_dAPAGADO(true);
+}
 
 /*
 Función Potenciómetro: Regula la energía suministrada al agente
@@ -629,6 +721,36 @@ void comando_POTENCIOMETRO() {
 Función auxiliar para activar y configurar potencia del agente calefactor
 TO DO
 */
+
+/*
+Función para calcular el PID
+*/
+double calcular_PID(double input, double setpoint) {
+  unsigned long now = millis();
+  double timeChange = (double)(now - last_pid_time);
+
+  // Ejecutar solo si ha pasado suficiente tiempo (ej. 200ms)
+  if (timeChange < 200)
+    return potencia_agente;
+
+  double error = setpoint - input;
+  error_acumulado += (error * timeChange);
+  double error_derivado = (error - error_anterior) / timeChange;
+
+  double output = (Kp * error) + (Ki * error_acumulado) + (Kd * error_derivado);
+
+  // Guardar variables para la próxima
+  error_anterior = error;
+  last_pid_time = now;
+
+  // Limitar salida
+  if (output > 100)
+    output = 100;
+  if (output < 0)
+    output = 0;
+
+  return output;
+}
 
 void activar_agente_calefactor(float porcentaje) {
   // Limitamos el rango por seguridad
@@ -687,7 +809,8 @@ void gestionar_fase_bombilla() {
 
     // 4. Sincronización: esperar a que el pulso de ZCD termine para no repetir
     // en el mismo ciclo
-    while (analogRead(PIN_ZCD) > 800);
+    while (analogRead(PIN_ZCD) > 800)
+      ;
   }
 }
 
@@ -699,14 +822,12 @@ pin a1 gris masa, morado 5V, blanco señal
 void leer_temperatura_pin_a1() {
   int valor = analogRead(A1);
   temperatura = (valor * 5.0 * 100.0) / 1024.0;
-  delay(20);
 }
 
 void leer_potenciometro_pin_a2() {
   int valor = analogRead(A2);
   potenciometro = valor / 10;
   Serial.println(potenciometro);
-  delay(20);
 }
 
 void setup() {
@@ -725,22 +846,10 @@ void loop() {
   gestionar_fase_bombilla();
   int boton = Leer_teclado_serial();
   leer_temperatura_pin_a1();
-  // --- LÓGICA DEL TERMOSTATO (CON CONTROL DE INERCIA) ---
+  // --- LÓGICA DEL TERMOSTATO (CON PID) ---
   if (display == dTERMOSTATO) {
-    float diferencia = temperatura_objetivo - temperatura;
-
-    if (diferencia > 2.0) {
-      // Si estamos lejos (más de 2 grados), calentamos a tope
-      activar_agente_calefactor(100);
-    } else if (diferencia > 0) {
-      // Si estamos cerca (menos de 2 grados), reducimos potencia
-      // proporcionalmente Multiplicamos por 50 para que 2 grados de diferencia
-      // sea 100%
-      activar_agente_calefactor(diferencia * 50.0);
-    } else {
-      // Si nos hemos pasado, apagamos
-      activar_agente_calefactor(0);
-    }
+    double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
+    activar_agente_calefactor(potencia_pid);
 
     // Actualizamos la variable 'potenciometro' para que se vea en pantalla
     potenciometro = potencia_agente;
