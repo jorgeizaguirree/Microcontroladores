@@ -365,10 +365,8 @@ void print_dAPAGADO(bool first_time) {
     lcd_clear();
     lcd_setCursor(0, 0);
     lcd_print(arr_display[dAPAGADO]);
-    delay(100);
     lcd_setCursor(1, 1);
     lcd_print("select command");
-    delay(100);
   } else {
     lcd_setCursor(10, 0);
     dtostrf(temperatura, 4, 2, buffer);
@@ -386,10 +384,8 @@ void print_dENCENDIDO(bool first_time) {
     lcd_clear();
     lcd_setCursor(0, 0);
     lcd_print(arr_display[dENCENDIDO]);
-    delay(100);
     lcd_setCursor(1, 1);
     lcd_print("select command");
-    delay(100);
   } else {
     lcd_setCursor(10, 0);
     dtostrf(temperatura, 4, 2, buffer);
@@ -789,7 +785,8 @@ void activar_agente_calefactor(float porcentaje) {
 void gestionar_fase_bombilla() {
   // SEGURIDAD: Si la potencia es 0, apagamos el Triac y salimos.
   if (potencia_agente <= 0) {
-    cbi(PORTD, PORTD1); // Pone en LOW (0V) el Pin 2 -> J1 no recibe corriente -> Apagado
+    cbi(PORTD, PORTD1); // Pone en LOW (0V) el Pin 2 -> J1 no recibe corriente
+                        // -> Apagado
     return;
   }
 
@@ -802,7 +799,8 @@ void gestionar_fase_bombilla() {
     // Map: 100% potencia -> 0 espera. 1% potencia -> 9500 espera.
     long espera = 0;
     if (potencia_agente < 100) {
-       espera = map(potencia_agente, 0, 100, 9300, 0); // Ajustado a 9300 para margen de seguridad
+      espera = map(potencia_agente, 0, 100, 9300,
+                   0); // Ajustado a 9300 para margen de seguridad
     }
 
     // 3. RETARDO
@@ -813,11 +811,12 @@ void gestionar_fase_bombilla() {
     // 4. DISPARO DEL TRIAC (PLACA VERDE)
     // Activamos Pin 2 (J1) para enviar corriente hacia J2 (GND)
     sbi(PORTD, PORTD1); // Pin 2 HIGH
-    
+
     delayMicroseconds(20); // Pulso breve para activar el Gate del Triac
 
     // 5. APAGADO DEL DISPARO
-    // Quitamos la corriente del Gate. El Triac seguirá encendido hasta el próximo cruce por cero.
+    // Quitamos la corriente del Gate. El Triac seguirá encendido hasta el
+    // próximo cruce por cero.
     cbi(PORTD, PORTD1); // Pin 2 LOW
 
     // 4. Sincronización: esperar a que el pulso de ZCD termine para no repetir
@@ -855,116 +854,123 @@ void setup() {
 } /*--(end setup )---*/
 
 void loop() {
+  // 1. TAREA CRÍTICA (Siempre)
   gestionar_fase_bombilla();
-  int boton = Leer_teclado_serial();
-  leer_temperatura_pin_a1();
-  // -----------------------------
 
-  if (pantalla == pDISPLAY) {
-    if (boton == btnSELECT) {
-      // salir del display y entrar al menu de comandos
-      lcd_clear();
-      print_COMANDOS(true);
-      pantalla = pCOMANDOS;
-    } else {
-      // mostrar la pantalla correspondiente y ejecutar lógica
-      switch (display) {
-      case dAPAGADO: {
-        print_dAPAGADO(false);
-        break;
-      }
-      case dENCENDIDO: {
-        // En modo encendido siempre al 100%
-        activar_agente_calefactor(100);
-        print_dENCENDIDO(false);
-        break;
-      }
-      case dMANUAL: {
-        // La lógica manual ya está en el comando_MANUAL (es bloqueante con
-        // botones) Aquí solo refrescamos pantalla si volviéramos a este modo
-        print_dMANUAL(false);
-        break;
-      }
-      case dTERMOSTATO: {
-        // --- LÓGICA DEL TERMOSTATO PID ---
-        // Ajuste de temperatura con botones
-        if (boton == btnUP) {
-          temperatura_objetivo += 1.0;
-        } else if (boton == btnDOWN) {
-          temperatura_objetivo -= 1.0;
-        } else if (boton == btnLEFT) {
-          temperatura_objetivo -= 10.0;
-        } else if (boton == btnRIGHT) {
-          temperatura_objetivo += 10.0;
-        }
-
-        double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
-        activar_agente_calefactor(potencia_pid);
-        potenciometro = potencia_agente; // Actualizar para mostrar en LCD
-
-        print_dTERMOSTATO(false);
-        break;
-      }
-      case dPOTENCIOMETRO: {
-        // --- LÓGICA DEL POTENCIÓMETRO ---
-        leer_potenciometro_pin_a2();
-        activar_agente_calefactor(potenciometro);
-
-        print_dPOTENCIOMETRO(false);
-        break;
-      }
-      }
-    }
-  } else if (pantalla == pCOMANDOS) {
-    if (boton == btnDOWN) {
-      if (posicion < sizeCOMANDOS - 1) {
-        posicion++;
-      }
-      print_COMANDOS(true);
-    } else if (boton == btnUP) {
-      if (posicion > 0) {
-        posicion--;
-      }
-      print_COMANDOS(true);
-    } else {
-      print_COMANDOS(false);
-    }
-    if (boton == btnSELECT) {
-      comando = posicion;
-      switch (comando) {
-      case cTEMPERATURA: {
-        comando_TEMPERATURA();
-        break;
-      }
-      case cENCENDER: {
-        comando_ENCENDER();
-        break;
-      }
-      case cMANUAL: {
-        comando_MANUAL();
-        break;
-      }
-      case cTERMOSTATO: {
-        comando_TERMOSTATO();
-        break;
-      }
-      case cAPAGAR: {
-        comando_APAGAR();
-        break;
-      }
-      case cPARAMETROS: {
-        comando_PARAMETROS();
-        break;
-      }
-      case cRESET: {
-        comando_RESET();
-        break;
-      }
-      case cPOTENCIOMETRO: {
-        comando_POTENCIOMETRO();
-        break;
-      }
-      }
-    }
+  // 1.1 Leer teclado (Siempre)
+  // Guardamos el botón pulsado.
+  int boton_leido = Leer_teclado_serial();
+  if (boton_leido != btnNONE) {
+    boton = boton_leido; // Guardamos en variable global para usarla después
   }
+
+  // 2. TAREA LENTA (Cada 100ms) - Temperatura y LCD
+  static unsigned long last_slow_task = 0;
+  if (millis() - last_slow_task > 100) {
+    last_slow_task = millis();
+
+    leer_temperatura_pin_a1();
+
+    // --- Lógica de Pantallas y Botones ---
+    if (pantalla == pDISPLAY) {
+      if (boton == btnSELECT) {
+        // salir del display y entrar al menu de comandos
+        lcd_clear();
+        print_COMANDOS(true);
+        pantalla = pCOMANDOS;
+        boton = btnNONE; // Consumir botón
+      } else {
+        // mostrar la pantalla correspondiente y ejecutar lógica
+        switch (display) {
+        case dAPAGADO: {
+          print_dAPAGADO(false);
+          break;
+        }
+        case dENCENDIDO: {
+          // En modo encendido siempre al 100%
+          activar_agente_calefactor(100);
+          print_dENCENDIDO(false);
+          break;
+        }
+        case dMANUAL: {
+          print_dMANUAL(false);
+          break;
+        }
+        case dTERMOSTATO: {
+          // Ajuste de temperatura con botones
+          if (boton == btnUP) {
+            temperatura_objetivo += 1.0;
+          } else if (boton == btnDOWN) {
+            temperatura_objetivo -= 1.0;
+          } else if (boton == btnLEFT) {
+            temperatura_objetivo -= 10.0;
+          } else if (boton == btnRIGHT) {
+            temperatura_objetivo += 10.0;
+          }
+          boton = btnNONE; // Consumir botón
+
+          // PID
+          double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
+          activar_agente_calefactor(potencia_pid);
+          potenciometro = potencia_agente;
+
+          print_dTERMOSTATO(false);
+          break;
+        }
+        case dPOTENCIOMETRO: {
+          leer_potenciometro_pin_a2();
+          activar_agente_calefactor(potenciometro);
+          print_dPOTENCIOMETRO(false);
+          break;
+        }
+        }
+      }
+    } else if (pantalla == pCOMANDOS) {
+      if (boton == btnDOWN) {
+        if (posicion < sizeCOMANDOS - 1) {
+          posicion++;
+        }
+        print_COMANDOS(true);
+      } else if (boton == btnUP) {
+        if (posicion > 0) {
+          posicion--;
+        }
+        print_COMANDOS(true);
+      } else {
+        print_COMANDOS(false);
+      }
+
+      if (boton == btnSELECT) {
+        comando = posicion;
+        boton = btnNONE; // Consumir botón
+        switch (comando) {
+        case cTEMPERATURA:
+          comando_TEMPERATURA();
+          break;
+        case cENCENDER:
+          comando_ENCENDER();
+          break;
+        case cMANUAL:
+          comando_MANUAL();
+          break;
+        case cTERMOSTATO:
+          comando_TERMOSTATO();
+          break;
+        case cAPAGAR:
+          comando_APAGAR();
+          break;
+        case cPARAMETROS:
+          comando_PARAMETROS();
+          break;
+        case cRESET:
+          comando_RESET();
+          break;
+        case cPOTENCIOMETRO:
+          comando_POTENCIOMETRO();
+          break;
+        }
+      }
+      boton = btnNONE; // Limpiar botón al final
+    }
+  } // Fin if 100ms
 }
