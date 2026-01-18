@@ -896,6 +896,17 @@ void loop() {
       }
       case dTERMOSTATO: {
         // --- LÓGICA DEL TERMOSTATO PID ---
+        // Ajuste de temperatura con botones
+        if (boton == btnUP) {
+          temperatura_objetivo += 1.0;
+        } else if (boton == btnDOWN) {
+          temperatura_objetivo -= 1.0;
+        } else if (boton == btnLEFT) {
+          temperatura_objetivo -= 10.0;
+        } else if (boton == btnRIGHT) {
+          temperatura_objetivo += 10.0;
+        }
+
         double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
         activar_agente_calefactor(potencia_pid);
         potenciometro = potencia_agente; // Actualizar para mostrar en LCD
