@@ -1,4 +1,6 @@
-#include <Wire.h> // Comes with Arduino IDE
+#include <Arduino.h>
+#line 1 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+#include <Wire.h>  // Comes with Arduino IDE
 // Get the LCD I2C Library here:
 // https://bitbucket.org/fmalpartida/new-liquidcrystal/downloads
 // Move any other LCD libraries to another folder or delete them
@@ -56,12 +58,6 @@
 #define sizeCOMANDOS 8
 
 // =============================
-// CONFIGURACIÓN AGENTE (BOMBILLA)
-// =============================
-#define PIN_ZCD A3         // Pin donde conectamos el detector de paso por cero
-float potencia_agente = 0; // Variable global para la potencia (0-100)
-
-// =============================
 // VARIABLES DE LCD
 // =============================
 int cursor_col = 0;
@@ -85,7 +81,6 @@ int fi;
 // =============================
 
 float temperatura = 0.0;
-float temperatura_objetivo = 25.0; // Temperatura que queremos alcanzar
 int potenciometro = 0;
 int posicion = 0;
 int opcion = 0;
@@ -96,43 +91,79 @@ int pantalla = pDISPLAY;
 int display = dAPAGADO;
 int comando = cTEMPERATURA;
 char buffer[10];
-char arr_display[][15] = {"APAGADO", "ENCENDIDO", "MANUAL", "TERMOSTATO",
-                          "POTENCIOMETRO"};
-char arr_comando[][15] = {"TEMPERATURA", "ENCENDER",     "MANUAL",
-                          "TERMOSTATO",  "APAGAR",       "PARAMETROS",
-                          "RESET",       "POTENCIOMETRO"};
-
-// =============================
-// PROTOTIPOS DE FUNCIONES
-// =============================
-void leer_temperatura_pin_a1();
-void leer_potenciometro_pin_a2();
-void activar_agente_calefactor(float porcentaje);
-void print_dAPAGADO(bool first_time);
-void print_dENCENDIDO(bool first_time);
-void print_dMANUAL(bool first_time);
-void print_dTERMOSTATO(bool first_time);
-void print_dPOTENCIOMETRO(bool first_time);
-void print_COMANDOS(bool change_pending);
-void comando_TEMPERATURA();
-void comando_ENCENDER();
-void comando_MANUAL();
-void comando_TERMOSTATO();
-void comando_APAGAR();
-void comando_PARAMETROS();
-void comando_RESET();
-void comando_POTENCIOMETRO();
-void gestionar_fase_bombilla();
-int Leer_teclado_serial();
-int Leer_teclado();
-void Teclado_libre();
-int encontrar_tecla(int v);
-int media(int a, int b);
-void blink();
+char arr_display[][15] = { "APAGADO", "ENCENDIDO", "MANUAL", "TERMOSTATO", "POTENCIOMETRO" };
+char arr_comando[][15] = { "TEMPERATURA", "ENCENDER", "MANUAL", "TERMOSTATO", "APAGAR", "PARAMETROS", "RESET", "POTENCIOMETRO" };
 
 // =============================
 // FUNCIONES LCD
 // =============================
+#line 98 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void lcd_send_nibble(uint8_t nibble);
+#line 110 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void lcd_send_byte(uint8_t value, uint8_t mode);
+#line 117 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void lcd_begin(uint8_t cols, uint8_t rows);
+#line 144 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void lcd_setCursor(uint8_t col, uint8_t row);
+#line 155 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void lcd_print(const char *str);
+#line 166 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void lcd_print(char c);
+#line 172 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void lcd_clear();
+#line 181 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+int media(int a, int b);
+#line 185 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+int encontrar_tecla(int v);
+#line 204 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void Teclado_libre();
+#line 215 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+int Leer_teclado_serial();
+#line 255 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+int Leer_teclado();
+#line 275 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+int Tecla_mantenida(int boton);
+#line 293 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void blink();
+#line 317 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void print_dAPAGADO(bool first_time);
+#line 339 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void print_dENCENDIDO(bool first_time);
+#line 362 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void print_dMANUAL(bool first_time);
+#line 387 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void print_dTERMOSTATO(bool first_time);
+#line 399 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void print_dPOTENCIOMETRO(bool first_time);
+#line 419 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void print_COMANDOS(bool change_pending);
+#line 439 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void comando_TEMPERATURA();
+#line 445 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void comando_ENCENDER();
+#line 452 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void comando_MANUAL();
+#line 459 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void comando_TERMOSTATO();
+#line 464 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void comando_APAGAR();
+#line 475 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void comando_PARAMETROS();
+#line 481 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void comando_RESET();
+#line 488 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void comando_POTENCIOMETRO();
+#line 521 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void activar_agente_calefactor(float porcentaje);
+#line 530 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void leer_temperatura_pin_a1();
+#line 536 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void leer_potenciometro_pin_a2();
+#line 544 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void setup();
+#line 554 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
+void loop();
+#line 98 "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final/programa_final.ino"
 void lcd_send_nibble(uint8_t nibble) {
   digitalWrite(LCD_D4, (nibble >> 0) & 0x01);
   digitalWrite(LCD_D5, (nibble >> 1) & 0x01);
@@ -146,7 +177,7 @@ void lcd_send_nibble(uint8_t nibble) {
 }
 
 void lcd_send_byte(uint8_t value, uint8_t mode) {
-  digitalWrite(LCD_RS, mode); // 0 = comando, 1 = dato
+  digitalWrite(LCD_RS, mode);  // 0 = comando, 1 = dato
   lcd_send_nibble(value >> 4);
   lcd_send_nibble(value & 0x0F);
   delayMicroseconds(40);
@@ -172,17 +203,16 @@ void lcd_begin(uint8_t cols, uint8_t rows) {
   lcd_send_nibble(0x03);
   lcd_send_nibble(0x02);
 
-  lcd_send_byte(0x28, 0); // 4 bits, 2 líneas
-  lcd_send_byte(0x0C, 0); // display ON, cursor OFF
-  lcd_send_byte(0x06, 0); // autoincremento
-  lcd_send_byte(0x01, 0); // clear
+  lcd_send_byte(0x28, 0);  // 4 bits, 2 líneas
+  lcd_send_byte(0x0C, 0);  // display ON, cursor OFF
+  lcd_send_byte(0x06, 0);  // autoincremento
+  lcd_send_byte(0x01, 0);  // clear
   delay(2);
 }
 
 void lcd_setCursor(uint8_t col, uint8_t row) {
-  static const uint8_t row_offsets[] = {0x00, 0x40};
-  if (row > 1)
-    row = 1;
+  static const uint8_t row_offsets[] = { 0x00, 0x40 };
+  if (row > 1) row = 1;
   lcd_send_byte(0x80 | (col + row_offsets[row]), 0);
   if (col > 16 || row > 2) {
     return;
@@ -217,7 +247,9 @@ void lcd_clear() {
 // FUNCIONES LECTOR DE TECLAS
 // =============================
 
-int media(int a, int b) { return (a + b) / 2; }
+int media(int a, int b) {
+  return (a + b) / 2;
+}
 
 int encontrar_tecla(int v) {
   if (v < media(v1, v2)) {
@@ -259,29 +291,29 @@ int Leer_teclado_serial() {
     // 3. Convertimos la letra (wasd) al código de botón del Arduino
     // Aceptamos tanto minúsculas como mayúsculas
     switch (tecla) {
-    case 'w':
-    case 'W':
-      return btnUP;
+      case 'w':
+      case 'W':
+        return btnUP;
 
-    case 's':
-    case 'S':
-      return btnDOWN; // ¡Ahora sí funcionará el botón abajo!
+      case 's':
+      case 'S':
+        return btnDOWN;  // ¡Ahora sí funcionará el botón abajo!
 
-    case 'a':
-    case 'A':
-      return btnLEFT;
+      case 'a':
+      case 'A':
+        return btnLEFT;
 
-    case 'd':
-    case 'D':
-      return btnRIGHT;
+      case 'd':
+      case 'D':
+        return btnRIGHT;
 
-    case 'e':
-    case 'E':
-      return btnSELECT; // Usamos 'e' para enter/aceptar
+      case 'e':
+      case 'E':
+        return btnSELECT;  // Usamos 'e' para enter/aceptar
 
-    default:
-      // Si llega un carácter raro (como un salto de línea), lo ignoramos
-      return btnNONE;
+      default:
+        // Si llega un carácter raro (como un salto de línea), lo ignoramos
+        return btnNONE;
     }
   }
 
@@ -330,7 +362,7 @@ int Tecla_mantenida(int boton) {
 void blink() {
   if (millis() - last_blink_time > 400) {
     last_blink_time = millis();
-    blink_state = !blink_state; // Invertir estado (visible/invisible)
+    blink_state = !blink_state;  // Invertir estado (visible/invisible)
 
     // Dibujar el cursor ">" según la posicion
     if (blink_state) {
@@ -348,8 +380,7 @@ void blink() {
 }
 
 /*
-Función que muestra en el display el modo Apagado y la Temperatura leída por el
-sensor
+Función que muestra en el display el modo Apagado y la Temperatura leída por el sensor
 */
 
 void print_dAPAGADO(bool first_time) {
@@ -370,9 +401,9 @@ void print_dAPAGADO(bool first_time) {
   }
 }
 
+
 /*
-Función que muestra en el display el modo Encendido y la Temperatura leída por
-el sensor.
+Función que muestra en el display el modo Encendido y la Temperatura leída por el sensor.
 */
 void print_dENCENDIDO(bool first_time) {
   if (first_time) {
@@ -393,57 +424,46 @@ void print_dENCENDIDO(bool first_time) {
 }
 
 /*
-Función que muestra en el display el modo Control manual, la Temperatura leída
-por el sensor y porcentaje de funcionamiento del agente calefactor. TO DO
+Función que muestra en el display el modo Control manual, la Temperatura leída por el sensor 
+y porcentaje de funcionamiento del agente calefactor.
+TO DO
 */
 void print_dMANUAL(bool first_time) {
   if (first_time) {
     lcd_clear();
-    lcd_setCursor(0, 0);
-    // Primera Linea: nombre del modo del array
+    lcd_setCursor(0,0);
+    //Primera Linea: nombre del modo del array
     lcd_print(arr_display[dMANUAL]);
   } else {
-    // Segunda Linea: temperatura actual y porcentaje de funcionamiento
+    //Mostrar la temperatura actual
     lcd_setCursor(0, 1);
-    dtostrf(temperatura, 5, 2, buffer); // funcion para pasar de float a char[]
+    dtostrf(temperatura, 5, 2, buffer); //funcion para pasar de float a char[]
     lcd_print(buffer);
     lcd_print("C");
-
-    lcd_setCursor(9, 1);
-    dtostrf(potenciometro, 5, 2, buffer); // funcion para pasar de float a char[]
-    lcd_print(buffer);
-    lcd_print("%");
+	//Mostrar el porcentaje actual
+	lcd_setCursor(9, 1);
+	dtostrf(potenciometro, 5, 2, buffer); //funcion para pasar de float a char[]
+	lcd_print(buffer);
+	lcd_print("%");
   }
 }
 
 /*
-Función que muestra en el display el modo Termostato la Temperatura leída por el
-sensor, temperatura objetivo y porcentaje de funcionamiento del agente
-calefactor. TO DO
+Función que muestra en el display el modo Termostato la Temperatura leída por el sensor, 
+temperatura objetivo y porcentaje de funcionamiento del agente calefactor.
+TO DO
 */
 void print_dTERMOSTATO(bool first_time) {
   if (first_time) {
     lcd_clear();
-    // Primera Linea: nombre del modo del array
-    lcd_setCursor(0, 0);
-    lcd_print(arr_display[dTERMOSTATO]);
   } else {
-    // Segunda Linea: temperatura actual y porcentaje de funcionamiento
-    lcd_setCursor(0, 1);
-    dtostrf(temperatura, 5, 2, buffer);
-    lcd_print(buffer);
-    lcd_print("C");
-
-    lcd_setCursor(9, 1);
-    dtostrf(potenciometro, 5, 2, buffer);
-    lcd_print(buffer);
-    lcd_print("%");
   }
 }
 
 /*
-Función que muestra en el display el modo Potenciómetro, la Temperatura leída
-por el sensor y porcentaje de funcionamiento del agente calefactor. TO DO
+Función que muestra en el display el modo Potenciómetro, la Temperatura leída por el sensor
+y porcentaje de funcionamiento del agente calefactor.
+TO DO
 */
 void print_dPOTENCIOMETRO(bool first_time) {
   if (first_time) {
@@ -478,101 +498,37 @@ void print_COMANDOS(bool change_pending) {
       lcd_setCursor(1, 1);
       lcd_print(arr_comando[posicion]);
     }
-  } else
-    blink();
+  } else blink();
 }
 
 /*
 Función Temperatura: Establece la temperatura objetivo en grados.
 TO DO
 */
-void comando_TEMPERATURA() {
-  display = dTERMOSTATO;
-  pantalla = pDISPLAY;
-  posicion = 0;
-  print_dTERMOSTATO(true);
-  // hacemos que al usar los botones arriba y abajo se cambie 1 grado la temp y
-  // izquierda derecha se cambie 10 grados
-  while (boton != btnSELECT) {
-    gestionar_fase_bombilla(); // <--- IMPORTANTE
-    Leer_teclado_serial();
-    if (boton == btnUP) {
-      temperatura_objetivo += 1;
-      print_dTERMOSTATO(false);
-    } else if (boton == btnDOWN) {
-      temperatura_objetivo -= 1;
-      print_dTERMOSTATO(false);
-    } else if (boton == btnLEFT) {
-      temperatura_objetivo += 10;
-      print_dTERMOSTATO(false);
-    } else if (boton == btnRIGHT) {
-      temperatura_objetivo -= 10;
-      print_dTERMOSTATO(false);
-    }
-  }
-}
+void comando_TEMPERATURA() {}
 
 /*
-Función Encender: Enciende el agente calefactor(bombilla) suministrando el 100%
-de energía. TO DO
+Función Encender: Enciende el agente calefactor suministrando el 100% de energía.
+TO DO
 */
-void comando_ENCENDER() {
-  display = dENCENDIDO;
-  pantalla = pDISPLAY;
-  posicion = 0;
-  print_dENCENDIDO(true);
-  activar_agente_calefactor(100);
-}
+void comando_ENCENDER() {}
 
 /*
-Función Control manual: Establece el porcentaje de funcionamiento del agente
-calefactor(bombilla) y regula la energía suministrada. TO DO
+Función Control manual: Establece el porcentaje de funcionamiento dal agente calefactor
+y regula la energía suministrada.
+TO DO
 */
-void comando_MANUAL() {
-  display = dMANUAL;
-  pantalla = pDISPLAY;
-  posicion = 0;
-  print_dMANUAL(true);
-
-  int boton = btnNONE;
-  // Bucle para ajustar la potencia manualmente
-  while (boton != btnSELECT) {
-    gestionar_fase_bombilla(); // <--- IMPORTANTE: Mantener la bombilla
-                               // funcionando
-
-    boton = Leer_teclado_serial();
-
-    if (boton == btnUP) {
-      potenciometro += 5; // Subir 5%
-      if (potenciometro > 100)
-        potenciometro = 100;
-      activar_agente_calefactor(potenciometro);
-      print_dMANUAL(false);
-    } else if (boton == btnDOWN) {
-      potenciometro -= 5; // Bajar 5%
-      if (potenciometro < 0)
-        potenciometro = 0;
-      activar_agente_calefactor(potenciometro);
-      print_dMANUAL(false);
-    }
-  }
-}
+void comando_MANUAL() {}
 
 /*
-Función Termostato: Regula la energía suministrada al agente
-calefactor(bombilla) manteniendo la temperatura objetivo establecida. TO DO
+Función Termostato: Regula la energía suministrada al agente calefactor manteniendo 
+la temperatura objetivo establecida.
+TO DO
 */
-void comando_TERMOSTATO() {
-  display = dTERMOSTATO;
-  pantalla = pDISPLAY;
-  posicion = 0;
-  print_dTERMOSTATO(true);
-  // No hacemos bucle aquí, dejamos que el loop principal se encargue del
-  // control
-}
+void comando_TERMOSTATO() {}
 
 /*
-Función Apagar: Apaga el agente calefactor(bombilla).
+Función Apagar: Apaga el agente calefactor.
 */
 void comando_APAGAR() {
   display = dAPAGADO;
@@ -594,8 +550,9 @@ TO DO
 void comando_RESET() {}
 
 /*
-Función Potenciómetro: Regula la energía suministrada al agente
-calefactor(bombilla) por medio del potenciómetro. TO DO
+Función Potenciómetro: Regula la energía sumimistrada al agente calefactor 
+por medio del potenciómetro.
+TO DO
 */
 void comando_POTENCIOMETRO() {
   bool configurado = false;
@@ -631,69 +588,12 @@ TO DO
 */
 
 void activar_agente_calefactor(float porcentaje) {
-  // Limitamos el rango por seguridad
-  if (porcentaje < 0)
-    porcentaje = 0;
-  if (porcentaje > 100)
-    porcentaje = 100;
-
-  // Guardamos la potencia en la variable global
-  potencia_agente = porcentaje;
-
-  // Nota: Ya no usamos analogWrite porque para una bombilla AC
-  // necesitamos control de fase manual.
 }
 
-void gestionar_fase_bombilla() {
-  if (potencia_agente <= 0) {
-    cbi(PORTD, PORTD1);
-    cbi(PORTB, PORTB6);
-    return;
-  }
-
-  // Detectar paso por cero en A3
-  if (analogRead(PIN_ZCD) > 900) {
-
-    // CALCULO DE ESPERA (Phase Delay)
-    // Para 50Hz, el semiciclo es de 10ms (10000us).
-    // Si 50% de potencia es ~6ms de espera (6000us):
-    // 0%   -> 9500us (casi todo el ciclo apagado)
-    // 50%  -> 6000us (tu valor de prueba)
-    // 100% -> 0us    (encendido inmediato)
-
-    long espera;
-    if (potencia_agente >= 100) {
-      espera = 0;
-    } else {
-      // Usamos una fórmula que se acerque a tus 6ms para el 50%
-      espera = map(potencia_agente, 0, 100, 9500, 0);
-    }
-
-    // 1. Esperar el tiempo de fase
-    if (espera > 0) {
-      delayMicroseconds(espera);
-    }
-
-    // 2. DISPARO DEL OPTOTRIAC (34 microsegundos)
-    sbi(PORTD, PORTD1);
-    sbi(PORTB, PORTB6);
-
-    delayMicroseconds(34); // Pulso de disparo constante
-
-    // 3. APAGAR PULSO (El Triac seguirá conduciendo hasta el próximo paso por
-    // cero)
-    cbi(PORTD, PORTD1);
-    cbi(PORTB, PORTB6);
-
-    // 4. Sincronización: esperar a que el pulso de ZCD termine para no repetir
-    // en el mismo ciclo
-    while (analogRead(PIN_ZCD) > 800);
-  }
-}
 
 /*
-Función que permite leer la temperatura de un sensor de temperatura conectado al
-pin a1 gris masa, morado 5V, blanco señal
+Función que permite leer la temperatura de un sensor de temperatura conectado al pin a1
+gris masa, morado 5V, blanco señal
 */
 
 void leer_temperatura_pin_a1() {
@@ -709,44 +609,20 @@ void leer_potenciometro_pin_a2() {
   delay(20);
 }
 
+
 void setup() {
   Serial.begin(9600);
-  pinMode(A1, INPUT); // Sensor de temperatura
-  pinMode(A2, INPUT); // potenciómetro
-  pinMode(PIN_ZCD, INPUT);
-  sbi(DDRD, DDD1); // Pin D1 como salida
-  sbi(DDRB, DDB6); // Pin D14/A0 (o el que usemos) como salida
+  pinMode(A1, INPUT);  // Sensor de temperatura
+  pinMode(A2, INPUT);  // potenciómetro
   lcd_begin(16, 2);
   print_dAPAGADO(true);
 
 } /*--(end setup )---*/
 
+
 void loop() {
-  gestionar_fase_bombilla();
   int boton = Leer_teclado_serial();
   leer_temperatura_pin_a1();
-  // --- LÓGICA DEL TERMOSTATO (CON CONTROL DE INERCIA) ---
-  if (display == dTERMOSTATO) {
-    float diferencia = temperatura_objetivo - temperatura;
-
-    if (diferencia > 2.0) {
-      // Si estamos lejos (más de 2 grados), calentamos a tope
-      activar_agente_calefactor(100);
-    } else if (diferencia > 0) {
-      // Si estamos cerca (menos de 2 grados), reducimos potencia
-      // proporcionalmente Multiplicamos por 50 para que 2 grados de diferencia
-      // sea 100%
-      activar_agente_calefactor(diferencia * 50.0);
-    } else {
-      // Si nos hemos pasado, apagamos
-      activar_agente_calefactor(0);
-    }
-
-    // Actualizamos la variable 'potenciometro' para que se vea en pantalla
-    potenciometro = potencia_agente;
-  }
-  // -----------------------------
-
   if (pantalla == pDISPLAY) {
     if (boton == btnSELECT) {
       // salir del display y entrar al menu de comandos
@@ -756,38 +632,39 @@ void loop() {
     } else {
       // mostrar la pantalla correspondiente
       switch (display) {
-      case dAPAGADO: {
-        print_dAPAGADO(false);
-        break;
-      }
-      case dENCENDIDO: {
-        print_dENCENDIDO(false);
-        break;
-      }
-      case dMANUAL: {
-        print_dMANUAL(false);
-        break;
-      }
-      case dTERMOSTATO: {
-        print_dTERMOSTATO(false);
-        break;
-      }
-      case dPOTENCIOMETRO: {
-        print_dPOTENCIOMETRO(false);
-        break;
-      }
+        case dAPAGADO:
+          {
+            print_dAPAGADO(false);
+            break;
+          }
+        case dENCENDIDO:
+          {
+            print_dENCENDIDO(false);
+            break;
+          }
+        case dMANUAL:
+          {
+            print_dMANUAL(false);
+            break;
+          }
+        case dTERMOSTATO:
+          {
+            print_dTERMOSTATO(false);
+            break;
+          }
+        case dPOTENCIOMETRO:
+          {
+            print_dPOTENCIOMETRO(false);
+            break;
+          }
       }
     }
   } else if (pantalla == pCOMANDOS) {
     if (boton == btnDOWN) {
-      if (posicion < sizeCOMANDOS - 1) {
-        posicion++;
-      }
+      if (posicion < sizeCOMANDOS - 1) { posicion++; }
       print_COMANDOS(true);
     } else if (boton == btnUP) {
-      if (posicion > 0) {
-        posicion--;
-      }
+      if (posicion > 0) { posicion--; }
       print_COMANDOS(true);
     } else {
       print_COMANDOS(false);
@@ -795,39 +672,50 @@ void loop() {
     if (boton == btnSELECT) {
       comando = posicion;
       switch (comando) {
-      case cTEMPERATURA: {
-        comando_TEMPERATURA();
-        break;
-      }
-      case cENCENDER: {
-        comando_ENCENDER();
-        break;
-      }
-      case cMANUAL: {
-        comando_MANUAL();
-        break;
-      }
-      case cTERMOSTATO: {
-        comando_TERMOSTATO();
-        break;
-      }
-      case cAPAGAR: {
-        comando_APAGAR();
-        break;
-      }
-      case cPARAMETROS: {
-        comando_PARAMETROS();
-        break;
-      }
-      case cRESET: {
-        comando_RESET();
-        break;
-      }
-      case cPOTENCIOMETRO: {
-        comando_POTENCIOMETRO();
-        break;
-      }
+        case cTEMPERATURA:
+          {
+            comando_TEMPERATURA();
+            break;
+          }
+        case cENCENDER:
+          {
+            comando_ENCENDER();
+            break;
+          }
+        case cMANUAL:
+          {
+            comando_MANUAL();
+            break;
+          }
+        case cTERMOSTATO:
+          {
+            comando_TERMOSTATO();
+            break;
+          }
+        case cAPAGAR:
+          {
+            comando_APAGAR();
+            break;
+          }
+        case cPARAMETROS:
+          {
+            comando_PARAMETROS();
+            break;
+          }
+        case cRESET:
+          {
+            comando_RESET();
+            break;
+          }
+        case cPOTENCIOMETRO:
+          {
+            comando_POTENCIOMETRO();
+            break;
+          }
       }
     }
   }
 }
+
+/* ( THE END ) */
+

@@ -19,5 +19,4 @@ A continuación se listan todas las tareas marcadas como "TO DO" en el archivo f
 ## Funciones Auxiliares
 - [ ] [Línea 443](./programa_final/programa_final.ino#L443): `activar_agente_calefactor` - Activar y configurar potencia del agente.
 
----
-*Nota: Este archivo se genera automáticamente listando los "TO DO" encontrados en programa_final.ino.*
+

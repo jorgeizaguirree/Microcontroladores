@@ -1,0 +1,16 @@
+# Configuration for clangd to recognize Arduino headers
+CompileFlags:
+  CompilationDatabase: "/home/tomasbeboshvili/Documents/Microcontroladores/programa_final"
+  Add:
+    - "-x"
+    - "c++"
+    - "-include"
+    - "Arduino.h"
+    - "--driver-mode=g++"
+  Remove:
+    - "-flto"
+    - "-MMD"
+    - "-fno-fat-lto-objects"
+
+Index:
+  Background: Build
