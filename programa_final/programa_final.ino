@@ -437,14 +437,42 @@ void print_dTERMOSTATO(bool first_time) {
     lcd_setCursor(0, 0);
     lcd_print(arr_display[dTERMOSTATO]);
   } else {
-    // Segunda Linea: temperatura actual y porcentaje de funcionamiento
-    lcd_setCursor(0, 1);
-    dtostrf(temperatura, 5, 2, buffer);
-    lcd_print(buffer);
-    lcd_print("C");
+    // Segunda Linea: Temp Actual | Objetivo | Potencia
+    // Formato: "25.0 >30 100%"
 
-    lcd_setCursor(9, 1);
-    dtostrf(potenciometro, 5, 2, buffer);
+    // 1. Temp Actual
+    lcd_setCursor(0, 1);
+    dtostrf(temperatura, 4, 1, buffer); // 1 decimal es suficiente
+    lcd_print(buffer);
+
+    // 2. Objetivo con BLINK
+    lcd_setCursor(5, 1);
+
+    // Lógica de parpadeo manual (usamos las mismas variables que la función
+    // blink)
+    if (millis() - last_blink_time > 400) {
+      last_blink_time = millis();
+      blink_state = !blink_state;
+    }
+
+    if (blink_state) {
+      lcd_print(">");
+    } else {
+      lcd_print(" ");
+    }
+
+    dtostrf(temperatura_objetivo, 2, 0, buffer); // Sin decimales
+    lcd_print(buffer);
+
+    // 3. Potencia
+    lcd_setCursor(9, 1); // Ajustar según espacio
+    // Usamos espacios en blanco para limpiar si pasamos de 100 a 10
+    if (potenciometro < 100)
+      lcd_print(" ");
+    if (potenciometro < 10)
+      lcd_print(" ");
+
+    itoa(potenciometro, buffer, 10);
     lcd_print(buffer);
     lcd_print("%");
   }
@@ -463,10 +491,18 @@ void print_dPOTENCIOMETRO(bool first_time) {
     lcd_print(buffer);
     lcd_print("%");
   } else {
+    // Actualizar porcentaje
+    lcd_setCursor(1, 1);
+    lcd_print("   "); // Limpiar valor anterior
+    lcd_setCursor(1, 1);
+    itoa(potenciometro, buffer, 10);
+    lcd_print(buffer);
+    lcd_print("%");
+
+    // Actualizar temperatura
     lcd_setCursor(10, 1);
-    leer_temperatura_pin_a1();
-    dtostrf(temperatura, 4, 2, buffer);
-    lcd_print(temperatura);
+    dtostrf(temperatura, 4, 1, buffer);
+    lcd_print(buffer);
     lcd_print("C");
   }
 }
@@ -831,21 +867,6 @@ void loop() {
   gestionar_fase_bombilla();
   int boton = Leer_teclado_serial();
   leer_temperatura_pin_a1();
-  // --- LÓGICA DEL TERMOSTATO (CON PID) ---
-  if (display == dTERMOSTATO) {
-    double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
-    activar_agente_calefactor(potencia_pid);
-
-    // Actualizamos la variable 'potenciometro' para que se vea en pantalla
-    potenciometro = potencia_agente;
-  }
-  // -----------------------------
-
-  // --- LÓGICA DEL POTENCIÓMETRO ---
-  if (display == dPOTENCIOMETRO) {
-    leer_potenciometro_pin_a2();              // Lee el valor (0-100)
-    activar_agente_calefactor(potenciometro); // Aplica la potencia
-  }
   // -----------------------------
 
   if (pantalla == pDISPLAY) {
@@ -855,25 +876,38 @@ void loop() {
       print_COMANDOS(true);
       pantalla = pCOMANDOS;
     } else {
-      // mostrar la pantalla correspondiente
+      // mostrar la pantalla correspondiente y ejecutar lógica
       switch (display) {
       case dAPAGADO: {
         print_dAPAGADO(false);
         break;
       }
       case dENCENDIDO: {
+        // En modo encendido siempre al 100%
+        activar_agente_calefactor(100);
         print_dENCENDIDO(false);
         break;
       }
       case dMANUAL: {
+        // La lógica manual ya está en el comando_MANUAL (es bloqueante con
+        // botones) Aquí solo refrescamos pantalla si volviéramos a este modo
         print_dMANUAL(false);
         break;
       }
       case dTERMOSTATO: {
+        // --- LÓGICA DEL TERMOSTATO PID ---
+        double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
+        activar_agente_calefactor(potencia_pid);
+        potenciometro = potencia_agente; // Actualizar para mostrar en LCD
+
         print_dTERMOSTATO(false);
         break;
       }
       case dPOTENCIOMETRO: {
+        // --- LÓGICA DEL POTENCIÓMETRO ---
+        leer_potenciometro_pin_a2();
+        activar_agente_calefactor(potenciometro);
+
         print_dPOTENCIOMETRO(false);
         break;
       }
