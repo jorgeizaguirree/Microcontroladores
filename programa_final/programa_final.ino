@@ -461,7 +461,8 @@ void print_dTERMOSTATO(bool first_time) {
       lcd_print(" ");
     }
 
-    dtostrf(temperatura_objetivo, 2, 0, buffer); // Sin decimales
+    // Convertir a string con ancho fijo de 3 chars (ej: " 25") para limpiar
+    dtostrf(temperatura_objetivo, 3, 0, buffer);
     lcd_print(buffer);
 
     // 3. Potencia
@@ -830,8 +831,7 @@ void gestionar_fase_bombilla() {
 
     // 4. Sincronización: esperar a que el pulso de ZCD termine para no repetir
     // en el mismo ciclo
-    while (analogRead(PIN_ZCD) > 800)
-      ;
+    while (analogRead(PIN_ZCD) > 800);
   }
 }
 
