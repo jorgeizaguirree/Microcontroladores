@@ -820,11 +820,10 @@ void gestionar_fase_bombilla() {
     // Quitamos la corriente del Gate. El Triac seguirá encendido hasta el próximo cruce por cero.
     cbi(PORTD, PORTD1); // Pin 2 LOW
 
-    // 6. ANTI-REBOTE ZCD
-    // Esperamos a que la señal de cruce baje para no disparar dos veces en el mismo ciclo
-    while (analogRead(PIN_ZCD) > 200) {
-       // Esperar
-    }
+    // 4. Sincronización: esperar a que el pulso de ZCD termine para no repetir
+    // en el mismo ciclo
+    while (analogRead(PIN_ZCD) > 800)
+      ;
   }
 }
 
