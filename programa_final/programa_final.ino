@@ -374,7 +374,6 @@ void print_dAPAGADO(bool first_time) {
     dtostrf(temperatura, 4, 2, buffer);
     lcd_print(buffer);
     lcd_print("C");
-    delay(100);
   }
 }
 
@@ -396,7 +395,6 @@ void print_dENCENDIDO(bool first_time) {
     dtostrf(temperatura, 4, 2, buffer);
     lcd_print(buffer);
     lcd_print("C");
-    delay(100);
   }
 }
 
@@ -789,49 +787,44 @@ void activar_agente_calefactor(float porcentaje) {
 }
 
 void gestionar_fase_bombilla() {
+  // SEGURIDAD: Si la potencia es 0, apagamos el Triac y salimos.
   if (potencia_agente <= 0) {
-    cbi(PORTD, PORTD1);
-    cbi(PORTB, PORTB6);
+    cbi(PORTD, PORTD1); // Pone en LOW (0V) el Pin 2 -> J1 no recibe corriente -> Apagado
     return;
   }
 
-  // Detectar paso por cero en A3
-  if (analogRead(PIN_ZCD) > 900) {
+  // 1. DETECCIÓN: Esperamos el pulso de la placa AZUL en A3
+  // El chip LM311 de la placa azul da una señal digital clara.
+  if (analogRead(PIN_ZCD) > 600) { // Umbral seguro
 
-    // CALCULO DE ESPERA (Phase Delay)
-    // Para 50Hz, el semiciclo es de 10ms (10000us).
-    // Si 50% de potencia es ~6ms de espera (6000us):
-    // 0%   -> 9500us (casi todo el ciclo apagado)
-    // 50%  -> 6000us (tu valor de prueba)
-    // 100% -> 0us    (encendido inmediato)
-
-    long espera;
-    if (potencia_agente >= 100) {
-      espera = 0;
-    } else {
-      // Usamos una fórmula que se acerque a tus 6ms para el 50%
-      espera = map(potencia_agente, 0, 100, 9500, 0);
+    // 2. CÁLCULO DE FASE (El "dimmer")
+    // 50Hz = 10ms por semiciclo (10000us)
+    // Map: 100% potencia -> 0 espera. 1% potencia -> 9500 espera.
+    long espera = 0;
+    if (potencia_agente < 100) {
+       espera = map(potencia_agente, 0, 100, 9300, 0); // Ajustado a 9300 para margen de seguridad
     }
 
-    // 1. Esperar el tiempo de fase
+    // 3. RETARDO
     if (espera > 0) {
       delayMicroseconds(espera);
     }
 
-    // 2. DISPARO DEL OPTOTRIAC (34 microsegundos)
-    sbi(PORTD, PORTD1);
-    sbi(PORTB, PORTB6);
+    // 4. DISPARO DEL TRIAC (PLACA VERDE)
+    // Activamos Pin 2 (J1) para enviar corriente hacia J2 (GND)
+    sbi(PORTD, PORTD1); // Pin 2 HIGH
+    
+    delayMicroseconds(20); // Pulso breve para activar el Gate del Triac
 
-    delayMicroseconds(34); // Pulso de disparo constante
+    // 5. APAGADO DEL DISPARO
+    // Quitamos la corriente del Gate. El Triac seguirá encendido hasta el próximo cruce por cero.
+    cbi(PORTD, PORTD1); // Pin 2 LOW
 
-    // 3. APAGAR PULSO (El Triac seguirá conduciendo hasta el próximo paso por
-    // cero)
-    cbi(PORTD, PORTD1);
-    cbi(PORTB, PORTB6);
-
-    // 4. Sincronización: esperar a que el pulso de ZCD termine para no repetir
-    // en el mismo ciclo
-    while (analogRead(PIN_ZCD) > 800);
+    // 6. ANTI-REBOTE ZCD
+    // Esperamos a que la señal de cruce baje para no disparar dos veces en el mismo ciclo
+    while (analogRead(PIN_ZCD) > 200) {
+       // Esperar
+    }
   }
 }
 
@@ -857,7 +850,6 @@ void setup() {
   pinMode(A2, INPUT); // potenciómetro
   pinMode(PIN_ZCD, INPUT);
   sbi(DDRD, DDD1); // Pin D1 como salida
-  sbi(DDRB, DDB6); // Pin D14/A0 (o el que usemos) como salida
   lcd_begin(16, 2);
   print_dAPAGADO(true);
 
