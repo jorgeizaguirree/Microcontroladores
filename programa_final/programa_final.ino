@@ -84,7 +84,7 @@ double Setpoint, Input, Output;  // Variables para la librería
 // Tuning inicial (Ajustables desde el menú)
 double Kp = 30.0;
 double Ki = 0.5;  // Nota: La librería maneja Ki diferente a la función manual, quizás necesites reajustar
-double Kd = 10.0;
+double Kd = 2.0;
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
 // =============================
@@ -306,20 +306,33 @@ int Leer_teclado_serial() {
   return btnNONE;
 }
 
+void esperar_soltar() {
+  // Mientras el valor analógico sea bajo (botón pulsado), esperamos
+  while (analogRead(A0) < 800) {
+    delay(10);
+    Serial.println("estamos esperando a soltar");
+  }
+  delay(20); // Un extra para evitar el rebote al soltar
+}
+
 int Leer_teclado() {
   valor = v6;
   fi = 10;
-  int boton = 5;
-  while ((valor = analogRead(A0)) > media(v5, v6)) {
-    return -1;
-  }
+  int count = 0;
+  int boton = btnNONE;
+  valor = analogRead(A0);
   if (valor < media(v5, v6)) {
     boton = encontrar_tecla(valor);
     while (fi > 0) {
+      Serial.println("Estamos en el bucle de leer el teclado");
       if (boton == encontrar_tecla(analogRead(A0))) {
         fi--;
       } else {
         fi = 10;
+        if (count == 5){
+          return btnNONE;
+        }
+        count++;
       }
     }
   }
@@ -503,26 +516,30 @@ void comando_TEMPERATURA() {
   lcd_clear();
   lcd_setCursor(0, 0);
   lcd_print("TEMPERATURA OBJ");
-
   bool configurado = false;
-  int temp = 0;
+  float temp = temperatura_objetivo;
   while (!configurado) {
+    Serial.println("Estamos en el bucle de configurar la temperatura");
     boton = Leer_teclado();
+    esperar_soltar();
     if (boton == btnUP) {
       temp += 0.25;
     } else if (boton == btnDOWN) {
       temp -= 0.25;
     } else if (boton == btnLEFT) {
-      temp += 1;
-    } else if (boton == btnRIGHT) {
       temp -= 1;
-    } else if (boton == btnSELECT) {
+    } else if (boton == btnRIGHT) {
+      temp += 1;
+    } 
+    lcd_setCursor(4, 1);
+    dtostrf(temp, 5, 2, buffer);
+    lcd_print(buffer);
+    lcd_print("C");
+    if (boton == btnSELECT) {
       configurado = true;
       temperatura_objetivo = temp;
+      print_COMANDOS(true);
     }
-    lcd_setCursor(4, 1);
-    lcd_print(temp);
-    lcd_print("C");
   }
 }
 
@@ -579,11 +596,11 @@ TO DO
 */
 void comando_PARAMETROS() {
   bool salir = false;
-  int parametro_seleccionado = 0;  // 0:Kp, 1:Ki, 2:Kd
+  int parametro_seleccionado = 0;  
 
   lcd_clear();
-
   while (!salir) {
+    Serial.println("Estamos en el bucle de configurar los parámetros");
     // Mostrar parámetro actual
     lcd_setCursor(0, 0);
     if (parametro_seleccionado == 0)
@@ -608,7 +625,7 @@ void comando_PARAMETROS() {
     lcd_setCursor(0, 1);
     lcd_print("UP/DW:Val SEL:Ok");
 
-    int boton = Leer_teclado_serial();
+    int boton = Leer_teclado();
 
     if (boton == btnUP) {
       if (parametro_seleccionado == 0)
@@ -652,7 +669,7 @@ TO DO
 void comando_RESET() {
   Kp = 30.0;
   Ki = 0.5;
-  Kd = 10.0;
+  Kd = 2.0;
   error_acumulado = 0;
   error_anterior = 0;
   temperatura_objetivo = 25.0;
@@ -803,7 +820,8 @@ void loop() {
   if (boton_leido != btnNONE) {
     boton = boton_leido;
   }
-  if (millis() - last_slow_task > 250) {
+  if (millis() - last_slow_task > 50) {
+    esperar_soltar();
     last_slow_task = millis();
     Input = temperatura;
     Setpoint = temperatura_objetivo;
