@@ -774,6 +774,7 @@ void leer_temperatura_pin_a1() {
 void leer_potenciometro_pin_a2() {
   int valor = analogRead(A2);
   potenciometro = valor / 10;
+  if (potenciometro > 100) potenciometro = 100;
 }
 
 void setup() {
@@ -812,7 +813,7 @@ void loop() {
   if (boton_leido != btnNONE) {
     boton = boton_leido;
   }
-  if (millis() - last_temperature_check > 300) {
+  if (millis() - last_temperature_check > 1000) {
     leer_temperatura_pin_a1();
     last_temperature_check = millis();
   }
