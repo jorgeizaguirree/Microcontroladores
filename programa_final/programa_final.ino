@@ -1,4 +1,4 @@
-#include <Wire.h> // Comes with Arduino IDE
+#include <Wire.h>  // Comes with Arduino IDE
 // Get the LCD I2C Library here:
 // https://bitbucket.org/fmalpartida/new-liquidcrystal/downloads
 // Move any other LCD libraries to another folder or delete them
@@ -58,8 +58,9 @@
 // =============================
 // CONFIGURACIÓN AGENTE (BOMBILLA)
 // =============================
-#define PIN_ZCD A3         // Pin donde conectamos el detector de paso por cero
-float potencia_agente = 0; // Variable global para la potencia (0-100)
+#define PIN_ZCD 3  // Pin donde conectamos el detector de paso por cero
+#define PIN_TRIAC 2
+float potencia_agente = 0;  // Variable global para la potencia (0-100)
 
 // =============================
 // VARIABLES DE LCD
@@ -85,11 +86,12 @@ int fi;
 // =============================
 
 float temperatura = 0.0;
-float temperatura_objetivo = 25.0; // Temperatura que queremos alcanzar
+float temperatura_objetivo = 25.0;  // Temperatura que queremos alcanzar
+static unsigned long last_slow_task = 0;
 // Variables PID
-double Kp = 2.0;
-double Ki = 5.0;
-double Kd = 1.0;
+double Kp = 30.0;
+double Ki = 0.1;
+double Kd = 10.0;
 double error_acumulado = 0;
 double error_anterior = 0;
 unsigned long last_pid_time = 0;
@@ -104,11 +106,11 @@ int pantalla = pDISPLAY;
 int display = dAPAGADO;
 int comando = cTEMPERATURA;
 char buffer[10];
-char arr_display[][15] = {"APAGADO", "ENCENDIDO", "MANUAL", "TERMOSTATO",
-                          "POTENCIOMETRO"};
-char arr_comando[][15] = {"TEMPERATURA", "ENCENDER",     "MANUAL",
-                          "TERMOSTATO",  "APAGAR",       "PARAMETROS",
-                          "RESET",       "POTENCIOMETRO"};
+char arr_display[][15] = { "APAGADO", "ENCENDIDO", "MANUAL", "TERMOSTATO",
+                           "POTENCIOMETRO" };
+char arr_comando[][15] = { "TEMPERATURA", "ENCENDER", "MANUAL",
+                           "TERMOSTATO", "APAGAR", "PARAMETROS",
+                           "RESET", "POTENCIOMETRO" };
 
 // =============================
 // PROTOTIPOS DE FUNCIONES
@@ -154,10 +156,14 @@ void lcd_send_nibble(uint8_t nibble) {
 }
 
 void lcd_send_byte(uint8_t value, uint8_t mode) {
-  digitalWrite(LCD_RS, mode); // 0 = comando, 1 = dato
+  noInterrupts();
+
+  digitalWrite(LCD_RS, mode);  // 0 = comando, 1 = dato
   lcd_send_nibble(value >> 4);
   lcd_send_nibble(value & 0x0F);
+  interrupts();
   delayMicroseconds(40);
+
 }
 
 void lcd_begin(uint8_t cols, uint8_t rows) {
@@ -180,15 +186,15 @@ void lcd_begin(uint8_t cols, uint8_t rows) {
   lcd_send_nibble(0x03);
   lcd_send_nibble(0x02);
 
-  lcd_send_byte(0x28, 0); // 4 bits, 2 líneas
-  lcd_send_byte(0x0C, 0); // display ON, cursor OFF
-  lcd_send_byte(0x06, 0); // autoincremento
-  lcd_send_byte(0x01, 0); // clear
+  lcd_send_byte(0x28, 0);  // 4 bits, 2 líneas
+  lcd_send_byte(0x0C, 0);  // display ON, cursor OFF
+  lcd_send_byte(0x06, 0);  // autoincremento
+  lcd_send_byte(0x01, 0);  // clear
   delay(2);
 }
 
 void lcd_setCursor(uint8_t col, uint8_t row) {
-  static const uint8_t row_offsets[] = {0x00, 0x40};
+  static const uint8_t row_offsets[] = { 0x00, 0x40 };
   if (row > 1)
     row = 1;
   lcd_send_byte(0x80 | (col + row_offsets[row]), 0);
@@ -225,7 +231,9 @@ void lcd_clear() {
 // FUNCIONES LECTOR DE TECLAS
 // =============================
 
-int media(int a, int b) { return (a + b) / 2; }
+int media(int a, int b) {
+  return (a + b) / 2;
+}
 
 int encontrar_tecla(int v) {
   if (v < media(v1, v2)) {
@@ -267,29 +275,29 @@ int Leer_teclado_serial() {
     // 3. Convertimos la letra (wasd) al código de botón del Arduino
     // Aceptamos tanto minúsculas como mayúsculas
     switch (tecla) {
-    case 'w':
-    case 'W':
-      return btnUP;
+      case 'w':
+      case 'W':
+        return btnUP;
 
-    case 's':
-    case 'S':
-      return btnDOWN; // ¡Ahora sí funcionará el botón abajo!
+      case 's':
+      case 'S':
+        return btnDOWN;  // ¡Ahora sí funcionará el botón abajo!
 
-    case 'a':
-    case 'A':
-      return btnLEFT;
+      case 'a':
+      case 'A':
+        return btnLEFT;
 
-    case 'd':
-    case 'D':
-      return btnRIGHT;
+      case 'd':
+      case 'D':
+        return btnRIGHT;
 
-    case 'e':
-    case 'E':
-      return btnSELECT; // Usamos 'e' para enter/aceptar
+      case 'e':
+      case 'E':
+        return btnSELECT;  // Usamos 'e' para enter/aceptar
 
-    default:
-      // Si llega un carácter raro (como un salto de línea), lo ignoramos
-      return btnNONE;
+      default:
+        // Si llega un carácter raro (como un salto de línea), lo ignoramos
+        return btnNONE;
     }
   }
 
@@ -338,7 +346,7 @@ int Tecla_mantenida(int boton) {
 void blink() {
   if (millis() - last_blink_time > 400) {
     last_blink_time = millis();
-    blink_state = !blink_state; // Invertir estado (visible/invisible)
+    blink_state = !blink_state;  // Invertir estado (visible/invisible)
 
     // Dibujar el cursor ">" según la posicion
     if (blink_state) {
@@ -407,13 +415,13 @@ void print_dMANUAL(bool first_time) {
   } else {
     // Segunda Linea: temperatura actual y porcentaje de funcionamiento
     lcd_setCursor(0, 1);
-    dtostrf(temperatura, 5, 2, buffer); // funcion para pasar de float a char[]
+    dtostrf(temperatura, 5, 2, buffer);  // funcion para pasar de float a char[]
     lcd_print(buffer);
     lcd_print("C");
 
     lcd_setCursor(9, 1);
     dtostrf(potenciometro, 5, 2,
-            buffer); // funcion para pasar de float a char[]
+            buffer);  // funcion para pasar de float a char[]
     lcd_print(buffer);
     lcd_print("%");
   }
@@ -436,11 +444,11 @@ void print_dTERMOSTATO(bool first_time) {
 
     // 1. Temp Actual
     lcd_setCursor(0, 1);
-    dtostrf(temperatura, 4, 1, buffer); // 1 decimal es suficiente
+    dtostrf(temperatura, 5, 2, buffer);  // 1 decimal es suficiente
     lcd_print(buffer);
 
     // 2. Objetivo con BLINK
-    lcd_setCursor(5, 1);
+    lcd_setCursor(6, 1);
 
     // Lógica de parpadeo manual (usamos las mismas variables que la función
     // blink)
@@ -456,11 +464,12 @@ void print_dTERMOSTATO(bool first_time) {
     }
 
     // Convertir a string con ancho fijo de 3 chars (ej: " 25") para limpiar
-    dtostrf(temperatura_objetivo, 3, 0, buffer);
+    dtostrf(temperatura_objetivo, 5, 2, buffer);
+    lcd_setCursor(7, 1);
     lcd_print(buffer);
 
     // 3. Potencia
-    lcd_setCursor(9, 1); // Ajustar según espacio
+    lcd_setCursor(13, 1);  // Ajustar según espacio
     // Usamos espacios en blanco para limpiar si pasamos de 100 a 10
     if (potenciometro < 100)
       lcd_print(" ");
@@ -488,7 +497,7 @@ void print_dPOTENCIOMETRO(bool first_time) {
   } else {
     // Actualizar porcentaje
     lcd_setCursor(1, 1);
-    lcd_print("   "); // Limpiar valor anterior
+    lcd_print("   ");  // Limpiar valor anterior
     lcd_setCursor(1, 1);
     itoa(potenciometro, buffer, 10);
     lcd_print(buffer);
@@ -534,7 +543,6 @@ void comando_TEMPERATURA() {
   // hacemos que al usar los botones arriba y abajo se cambie 1 grado la temp y
   // izquierda derecha se cambie 10 grados
   while (boton != btnSELECT) {
-    gestionar_fase_bombilla(); // <--- IMPORTANTE
     Leer_teclado_serial();
     if (boton == btnUP) {
       temperatura_objetivo += 1;
@@ -577,18 +585,17 @@ void comando_MANUAL() {
   int boton = btnNONE;
   // Bucle para ajustar la potencia manualmente con BOTONES
   while (boton != btnSELECT) {
-    gestionar_fase_bombilla(); // Mantener la bombilla funcionando
 
     boton = Leer_teclado_serial();
 
     if (boton == btnUP) {
-      potenciometro += 5; // Subir 5%
+      potenciometro += 5;  // Subir 5%
       if (potenciometro > 100)
         potenciometro = 100;
       activar_agente_calefactor(potenciometro);
       print_dMANUAL(false);
     } else if (boton == btnDOWN) {
-      potenciometro -= 5; // Bajar 5%
+      potenciometro -= 5;  // Bajar 5%
       if (potenciometro < 0)
         potenciometro = 0;
       activar_agente_calefactor(potenciometro);
@@ -602,6 +609,8 @@ Función Termostato: Regula la energía suministrada al agente
 calefactor(bombilla) manteniendo la temperatura objetivo establecida. TO DO
 */
 void comando_TERMOSTATO() {
+  error_acumulado = 0;
+  error_anterior = 0;
   display = dTERMOSTATO;
   pantalla = pDISPLAY;
   posicion = 0;
@@ -617,7 +626,7 @@ void comando_APAGAR() {
   display = dAPAGADO;
   pantalla = pDISPLAY;
   posicion = 0;
-  activar_agente_calefactor(0); // Apagar la bombilla
+  activar_agente_calefactor(0);  // Apagar la bombilla
   print_dAPAGADO(true);
 }
 
@@ -627,13 +636,11 @@ TO DO
 */
 void comando_PARAMETROS() {
   bool salir = false;
-  int parametro_seleccionado = 0; // 0:Kp, 1:Ki, 2:Kd
+  int parametro_seleccionado = 0;  // 0:Kp, 1:Ki, 2:Kd
 
   lcd_clear();
 
   while (!salir) {
-    gestionar_fase_bombilla(); // Mantener control de fase
-
     // Mostrar parámetro actual
     lcd_setCursor(0, 0);
     if (parametro_seleccionado == 0)
@@ -687,11 +694,11 @@ void comando_PARAMETROS() {
     } else if (boton == btnSELECT) {
       salir = true;
       pantalla = pDISPLAY;
-      display = dAPAGADO; // Volver al menú principal
+      display = dAPAGADO;  // Volver al menú principal
       print_dAPAGADO(true);
     }
 
-    delay(100); // Pequeño delay para no refrescar tan rápido
+    delay(100);  // Pequeño delay para no refrescar tan rápido
   }
 }
 
@@ -744,26 +751,40 @@ Función para calcular el PID
 double calcular_PID(double input, double setpoint) {
   unsigned long now = millis();
   double timeChange = (double)(now - last_pid_time);
-
-  // Ejecutar solo si ha pasado suficiente tiempo (ej. 200ms)
-  if (timeChange < 200)
-    return potencia_agente;
+  
+  // Evitar cálculos demasiado rápidos
+  if (timeChange < 200) return potencia_agente; 
 
   double error = setpoint - input;
-  error_acumulado += (error * timeChange);
+  
+  // --- MEJORA 1: Ventana de Integración ---
+  // Solo acumulamos error (memoria) si estamos cerca del objetivo (ej. +- 3 grados)
+  // Si estamos muy lejos, no tiene sentido acumular, solo queremos potencia máxima.
+  if (abs(error) < 3.0) {
+    error_acumulado += (error * timeChange);
+  } else {
+    error_acumulado = 0; // Si nos alejamos mucho, borramos memoria para reaccionar rápido
+  }
+
+  // --- MEJORA 2: Anti-Windup Estricto ---
+  // Limitamos la memoria para que no supere el 100% de potencia por sí sola
+  // Asumiendo un Ki de aprox 2.0-5.0, limitamos el acumulado.
+  double max_integral = 100.0 / Ki; 
+  if (error_acumulado > max_integral) error_acumulado = max_integral;
+  if (error_acumulado < -max_integral) error_acumulado = -max_integral;
+
   double error_derivado = (error - error_anterior) / timeChange;
 
   double output = (Kp * error) + (Ki * error_acumulado) + (Kd * error_derivado);
 
-  // Guardar variables para la próxima
   error_anterior = error;
   last_pid_time = now;
 
-  // Limitar salida
-  if (output > 100)
-    output = 100;
-  if (output < 0)
-    output = 0;
+  // --- MEJORA 3: Corte por seguridad ---
+  // Si nos hemos pasado de la temperatura, el PID bajará, 
+  // pero aseguramos que el output no sea negativo ni > 100.
+  if (output > 100) output = 100;
+  if (output < 0) output = 0;
 
   return output;
 }
@@ -782,48 +803,38 @@ void activar_agente_calefactor(float porcentaje) {
   // necesitamos control de fase manual.
 }
 
-void gestionar_fase_bombilla() {
+void cruce_por_cero_isr() {
   // SEGURIDAD: Si la potencia es 0, apagamos el Triac y salimos.
   if (potencia_agente <= 0) {
-    cbi(PORTD, PORTD1); // Pone en LOW (0V) el Pin 2 -> J1 no recibe corriente
-                        // -> Apagado
+    cbi(PORTD, PORTD1);  // Pone en LOW (0V) el Pin 2 -> J1 no recibe corriente
+    cbi(TIMSK1, OCIE1A); // Apagar Timer
+    // -> Apagado
+    return;
+  } if (potencia_agente >= 100) {
+    sbi(PORTD, PORTD1); // Pin 2 HIGH constante
+    cbi(TIMSK1, OCIE1A); 
     return;
   }
+  
+  // Calculamos el retardo en "Ticks" del reloj
+  // Prescaler 64 -> 1 tick = 4 microsegundos
+  // 10ms (ciclo completo) = 2500 ticks aprox
+  // Map: 0-100% -> 2300-50 ticks
+  int ticks = map(potencia_agente, 0, 100, 2375, 375);
+  
+  OCR1A = ticks; // Establecemos la meta
+  sbi(TIFR1, OCF1A);   // Limpiamos banderas pendientes
+  sbi(TIMSK1, OCIE1A); // Habilitamos la interrupción del Timer
+}
 
-  // 1. DETECCIÓN: Esperamos el pulso de la placa AZUL en A3
-  // El chip LM311 de la placa azul da una señal digital clara.
-  if (analogRead(PIN_ZCD) > 600) { // Umbral seguro
-
-    // 2. CÁLCULO DE FASE (El "dimmer")
-    // 50Hz = 10ms por semiciclo (10000us)
-    // Map: 100% potencia -> 0 espera. 1% potencia -> 9500 espera.
-    long espera = 0;
-    if (potencia_agente < 100) {
-      espera = map(potencia_agente, 0, 100, 9300,
-                   0); // Ajustado a 9300 para margen de seguridad
-    }
-
-    // 3. RETARDO
-    if (espera > 0) {
-      delayMicroseconds(espera);
-    }
-
-    // 4. DISPARO DEL TRIAC (PLACA VERDE)
-    // Activamos Pin 2 (J1) para enviar corriente hacia J2 (GND)
-    sbi(PORTD, PORTD1); // Pin 2 HIGH
-
-    delayMicroseconds(20); // Pulso breve para activar el Gate del Triac
-
-    // 5. APAGADO DEL DISPARO
-    // Quitamos la corriente del Gate. El Triac seguirá encendido hasta el
-    // próximo cruce por cero.
-    cbi(PORTD, PORTD1); // Pin 2 LOW
-
-    // 4. Sincronización: esperar a que el pulso de ZCD termine para no repetir
-    // en el mismo ciclo
-    while (analogRead(PIN_ZCD) > 800)
-      ;
-  }
+ISR(TIMER1_COMPA_vect) {
+  sbi(PORTD, PORTD1);  // DISPARO TRIAC (Pin 2 HIGH)
+  // Pequeño retardo de disparo (suficiente para activar Gate)
+  // Al ser tan corto (20us) no afecta al LCD
+  delayMicroseconds(40);
+  cbi(PORTD, PORTD1);  // FIN DISPARO (Pin 2 LOW)
+  
+  cbi(TIMSK1, OCIE1A); // Apagamos el timer hasta el próximo cruce
 }
 
 /*
@@ -839,33 +850,40 @@ void leer_temperatura_pin_a1() {
 void leer_potenciometro_pin_a2() {
   int valor = analogRead(A2);
   potenciometro = valor / 10;
-  Serial.println(potenciometro);
 }
 
 void setup() {
   Serial.begin(9600);
-  pinMode(A1, INPUT); // Sensor de temperatura
-  pinMode(A2, INPUT); // potenciómetro
-  pinMode(PIN_ZCD, INPUT);
-  sbi(DDRD, DDD1); // Pin D1 como salida
+  pinMode(A1, INPUT);  // Sensor de temperatura
+  pinMode(A2, INPUT);  // potenciómetro
+  pinMode(PIN_ZCD, INPUT_PULLUP);
+
+  sbi(DDRD, DDD1);  // Pin D1 como salida
+
+  noInterrupts();
+  TCCR1A = 0; // Modo Normal
+  TCCR1B = 0;
+  // Prescaler 64 (CS11 y CS10) -> 4us por tick a 16MHz
+  sbi(TCCR1B, CS11);
+  sbi(TCCR1B, CS10);
+  interrupts();
+
   lcd_begin(16, 2);
+  attachInterrupt(digitalPinToInterrupt(PIN_ZCD), cruce_por_cero_isr, RISING);
+
   print_dAPAGADO(true);
 
 } /*--(end setup )---*/
 
 void loop() {
-  // 1. TAREA CRÍTICA (Siempre)
-  gestionar_fase_bombilla();
 
   // 1.1 Leer teclado (Siempre)
   // Guardamos el botón pulsado.
   int boton_leido = Leer_teclado_serial();
   if (boton_leido != btnNONE) {
-    boton = boton_leido; // Guardamos en variable global para usarla después
+    boton = boton_leido;  // Guardamos en variable global para usarla después
   }
 
-  // 2. TAREA LENTA (Cada 100ms) - Temperatura y LCD
-  static unsigned long last_slow_task = 0;
   if (millis() - last_slow_task > 100) {
     last_slow_task = millis();
 
@@ -878,51 +896,58 @@ void loop() {
         lcd_clear();
         print_COMANDOS(true);
         pantalla = pCOMANDOS;
-        boton = btnNONE; // Consumir botón
+        boton = btnNONE;  // Consumir botón
       } else {
         // mostrar la pantalla correspondiente y ejecutar lógica
         switch (display) {
-        case dAPAGADO: {
-          print_dAPAGADO(false);
-          break;
-        }
-        case dENCENDIDO: {
-          // En modo encendido siempre al 100%
-          activar_agente_calefactor(100);
-          print_dENCENDIDO(false);
-          break;
-        }
-        case dMANUAL: {
-          print_dMANUAL(false);
-          break;
-        }
-        case dTERMOSTATO: {
-          // Ajuste de temperatura con botones
-          if (boton == btnUP) {
-            temperatura_objetivo += 1.0;
-          } else if (boton == btnDOWN) {
-            temperatura_objetivo -= 1.0;
-          } else if (boton == btnLEFT) {
-            temperatura_objetivo -= 10.0;
-          } else if (boton == btnRIGHT) {
-            temperatura_objetivo += 10.0;
-          }
-          boton = btnNONE; // Consumir botón
+          case dAPAGADO:
+            {
+              print_dAPAGADO(false);
+              break;
+            }
+          case dENCENDIDO:
+            {
+              // En modo encendido siempre al 100%
+              activar_agente_calefactor(100);
+              print_dENCENDIDO(false);
+              break;
+            }
+          case dMANUAL:
+            {
+              print_dMANUAL(false);
+              break;
+            }
+          case dTERMOSTATO:
+            {
+              // Ajuste de temperatura con botones
+              if (boton == btnUP) {
+                temperatura_objetivo += 0.25;
+              } else if (boton == btnDOWN) {
+                temperatura_objetivo -= 0.25;
+              } else if (boton == btnLEFT) {
+                temperatura_objetivo -= 1.0;
+              } else if (boton == btnRIGHT) {
+                temperatura_objetivo += 1.0;
+              }
+              boton = btnNONE;  // Consumir botón
 
-          // PID
-          double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
-          activar_agente_calefactor(potencia_pid);
-          potenciometro = potencia_agente;
+              // PID
+              if (temperatura < temperatura_objetivo) {
+                double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
+                activar_agente_calefactor(potencia_pid);
+                potenciometro = potencia_agente;
+              }
 
-          print_dTERMOSTATO(false);
-          break;
-        }
-        case dPOTENCIOMETRO: {
-          leer_potenciometro_pin_a2();
-          activar_agente_calefactor(potenciometro);
-          print_dPOTENCIOMETRO(false);
-          break;
-        }
+              print_dTERMOSTATO(false);
+              break;
+            }
+          case dPOTENCIOMETRO:
+            {
+              leer_potenciometro_pin_a2();
+              activar_agente_calefactor(potenciometro);
+              print_dPOTENCIOMETRO(false);
+              break;
+            }
         }
       }
     } else if (pantalla == pCOMANDOS) {
@@ -942,35 +967,35 @@ void loop() {
 
       if (boton == btnSELECT) {
         comando = posicion;
-        boton = btnNONE; // Consumir botón
+        boton = btnNONE;  // Consumir botón
         switch (comando) {
-        case cTEMPERATURA:
-          comando_TEMPERATURA();
-          break;
-        case cENCENDER:
-          comando_ENCENDER();
-          break;
-        case cMANUAL:
-          comando_MANUAL();
-          break;
-        case cTERMOSTATO:
-          comando_TERMOSTATO();
-          break;
-        case cAPAGAR:
-          comando_APAGAR();
-          break;
-        case cPARAMETROS:
-          comando_PARAMETROS();
-          break;
-        case cRESET:
-          comando_RESET();
-          break;
-        case cPOTENCIOMETRO:
-          comando_POTENCIOMETRO();
-          break;
+          case cTEMPERATURA:
+            comando_TEMPERATURA();
+            break;
+          case cENCENDER:
+            comando_ENCENDER();
+            break;
+          case cMANUAL:
+            comando_MANUAL();
+            break;
+          case cTERMOSTATO:
+            comando_TERMOSTATO();
+            break;
+          case cAPAGAR:
+            comando_APAGAR();
+            break;
+          case cPARAMETROS:
+            comando_PARAMETROS();
+            break;
+          case cRESET:
+            comando_RESET();
+            break;
+          case cPOTENCIOMETRO:
+            comando_POTENCIOMETRO();
+            break;
         }
       }
-      boton = btnNONE; // Limpiar botón al final
+      boton = btnNONE;  // Limpiar botón al final
     }
-  } // Fin if 100ms
+  }  // Fin if 100ms
 }
