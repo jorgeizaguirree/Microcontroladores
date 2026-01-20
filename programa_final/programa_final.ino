@@ -1,9 +1,5 @@
 #include <Wire.h>  // Comes with Arduino IDE
-// Get the LCD I2C Library here:
-// https://bitbucket.org/fmalpartida/new-liquidcrystal/downloads
-// Move any other LCD libraries to another folder or delete them
-// See Library "Docs" folder for possible commands etc.
-
+#include <PID_v1.h>
 // =============================
 // CONFIGURACIÓN DE PINES LCD
 // =============================
@@ -82,16 +78,22 @@ int valor;
 int fi;
 
 // =============================
+// VARIABLES PID (LIBRERÍA)
+// =============================
+double Setpoint, Input, Output;  // Variables para la librería
+// Tuning inicial (Ajustables desde el menú)
+double Kp = 30.0;
+double Ki = 0.5;  // Nota: La librería maneja Ki diferente a la función manual, quizás necesites reajustar
+double Kd = 10.0;
+PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+
+// =============================
 // VARIABLES GENERALES
 // =============================
 
 float temperatura = 0.0;
 float temperatura_objetivo = 25.0;  // Temperatura que queremos alcanzar
 static unsigned long last_slow_task = 0;
-// Variables PID
-double Kp = 30.0;
-double Ki = 0.1;
-double Kd = 10.0;
 double error_acumulado = 0;
 double error_anterior = 0;
 unsigned long last_pid_time = 0;
@@ -163,7 +165,6 @@ void lcd_send_byte(uint8_t value, uint8_t mode) {
   lcd_send_nibble(value & 0x0F);
   interrupts();
   delayMicroseconds(40);
-
 }
 
 void lcd_begin(uint8_t cols, uint8_t rows) {
@@ -751,25 +752,25 @@ Función para calcular el PID
 double calcular_PID(double input, double setpoint) {
   unsigned long now = millis();
   double timeChange = (double)(now - last_pid_time);
-  
+
   // Evitar cálculos demasiado rápidos
-  if (timeChange < 200) return potencia_agente; 
+  if (timeChange < 200) return potencia_agente;
 
   double error = setpoint - input;
-  
+
   // --- MEJORA 1: Ventana de Integración ---
   // Solo acumulamos error (memoria) si estamos cerca del objetivo (ej. +- 3 grados)
   // Si estamos muy lejos, no tiene sentido acumular, solo queremos potencia máxima.
   if (abs(error) < 3.0) {
     error_acumulado += (error * timeChange);
   } else {
-    error_acumulado = 0; // Si nos alejamos mucho, borramos memoria para reaccionar rápido
+    error_acumulado = 0;  // Si nos alejamos mucho, borramos memoria para reaccionar rápido
   }
 
   // --- MEJORA 2: Anti-Windup Estricto ---
   // Limitamos la memoria para que no supere el 100% de potencia por sí sola
   // Asumiendo un Ki de aprox 2.0-5.0, limitamos el acumulado.
-  double max_integral = 100.0 / Ki; 
+  double max_integral = 100.0 / Ki;
   if (error_acumulado > max_integral) error_acumulado = max_integral;
   if (error_acumulado < -max_integral) error_acumulado = -max_integral;
 
@@ -781,7 +782,7 @@ double calcular_PID(double input, double setpoint) {
   last_pid_time = now;
 
   // --- MEJORA 3: Corte por seguridad ---
-  // Si nos hemos pasado de la temperatura, el PID bajará, 
+  // Si nos hemos pasado de la temperatura, el PID bajará,
   // pero aseguramos que el output no sea negativo ni > 100.
   if (output > 100) output = 100;
   if (output < 0) output = 0;
@@ -806,25 +807,27 @@ void activar_agente_calefactor(float porcentaje) {
 void cruce_por_cero_isr() {
   // SEGURIDAD: Si la potencia es 0, apagamos el Triac y salimos.
   if (potencia_agente <= 0) {
-    cbi(PORTD, PORTD1);  // Pone en LOW (0V) el Pin 2 -> J1 no recibe corriente
-    cbi(TIMSK1, OCIE1A); // Apagar Timer
+    cbi(PORTD, PORTD1);   // Pone en LOW (0V) el Pin 2 -> J1 no recibe corriente
+    cbi(TIMSK1, OCIE1A);  // Apagar Timer
     // -> Apagado
     return;
-  } if (potencia_agente >= 100) {
-    sbi(PORTD, PORTD1); // Pin 2 HIGH constante
-    cbi(TIMSK1, OCIE1A); 
+  }
+
+  if (potencia_agente >= 100) {
+    sbi(PORTD, PORTD1);  // Pin 2 HIGH constante
+    cbi(TIMSK1, OCIE1A);
     return;
   }
-  
+
   // Calculamos el retardo en "Ticks" del reloj
   // Prescaler 64 -> 1 tick = 4 microsegundos
   // 10ms (ciclo completo) = 2500 ticks aprox
   // Map: 0-100% -> 2300-50 ticks
-  int ticks = map(potencia_agente, 0, 100, 2375, 375);
-  
-  OCR1A = ticks; // Establecemos la meta
-  sbi(TIFR1, OCF1A);   // Limpiamos banderas pendientes
-  sbi(TIMSK1, OCIE1A); // Habilitamos la interrupción del Timer
+  int ticks = map(potencia_agente, 1, 99, 2375, 375);
+
+  OCR1A = ticks;        // Establecemos la meta
+  sbi(TIFR1, OCF1A);    // Limpiamos banderas pendientes
+  sbi(TIMSK1, OCIE1A);  // Habilitamos la interrupción del Timer
 }
 
 ISR(TIMER1_COMPA_vect) {
@@ -833,8 +836,8 @@ ISR(TIMER1_COMPA_vect) {
   // Al ser tan corto (20us) no afecta al LCD
   delayMicroseconds(40);
   cbi(PORTD, PORTD1);  // FIN DISPARO (Pin 2 LOW)
-  
-  cbi(TIMSK1, OCIE1A); // Apagamos el timer hasta el próximo cruce
+
+  cbi(TIMSK1, OCIE1A);  // Apagamos el timer hasta el próximo cruce
 }
 
 /*
@@ -861,7 +864,7 @@ void setup() {
   sbi(DDRD, DDD1);  // Pin D1 como salida
 
   noInterrupts();
-  TCCR1A = 0; // Modo Normal
+  TCCR1A = 0;  // Modo Normal
   TCCR1B = 0;
   // Prescaler 64 (CS11 y CS10) -> 4us por tick a 16MHz
   sbi(TCCR1B, CS11);
@@ -869,6 +872,14 @@ void setup() {
   interrupts();
 
   lcd_begin(16, 2);
+
+  // CONFIGURACIÓN PID
+  Input = temperatura;
+  Setpoint = temperatura_objetivo;
+
+  myPID.SetMode(AUTOMATIC);       // Encender PID
+  myPID.SetOutputLimits(0, 100);  // Limitar salida 0-100%
+  myPID.SetSampleTime(100);       // Calcular cada 100ms (coincide con tu loop)
   attachInterrupt(digitalPinToInterrupt(PIN_ZCD), cruce_por_cero_isr, RISING);
 
   print_dAPAGADO(true);
@@ -886,6 +897,10 @@ void loop() {
 
   if (millis() - last_slow_task > 100) {
     last_slow_task = millis();
+
+    // Actualizamos variables para el PID
+    Input = temperatura;
+    Setpoint = temperatura_objetivo;
 
     leer_temperatura_pin_a1();
 
@@ -932,11 +947,9 @@ void loop() {
               boton = btnNONE;  // Consumir botón
 
               // PID
-              if (temperatura < temperatura_objetivo) {
-                double potencia_pid = calcular_PID(temperatura, temperatura_objetivo);
-                activar_agente_calefactor(potencia_pid);
-                potenciometro = potencia_agente;
-              }
+              myPID.Compute();
+              // Output es la variable global que la librería actualiza (0-100)
+              activar_agente_calefactor(Output);
 
               print_dTERMOSTATO(false);
               break;
