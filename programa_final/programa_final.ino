@@ -421,7 +421,7 @@ void print_dMANUAL(bool first_time) {
     lcd_print("C");
 
     lcd_setCursor(9, 1);
-    dtostrf(potenciometro, 5, 2,
+    dtostrf(potencia_agente, 5, 2,
             buffer);  // funcion para pasar de float a char[]
     lcd_print(buffer);
     lcd_print("%");
@@ -472,12 +472,12 @@ void print_dTERMOSTATO(bool first_time) {
     // 3. Potencia
     lcd_setCursor(13, 1);  // Ajustar según espacio
     // Usamos espacios en blanco para limpiar si pasamos de 100 a 10
-    if (potenciometro < 100)
+    if (potencia_agente < 100)
       lcd_print(" ");
-    if (potenciometro < 10)
+    if (potencia_agente < 10)
       lcd_print(" ");
 
-    itoa(potenciometro, buffer, 10);
+    itoa(potencia_agente, buffer, 10);
     lcd_print(buffer);
     lcd_print("%");
   }
@@ -500,7 +500,7 @@ void print_dPOTENCIOMETRO(bool first_time) {
     lcd_setCursor(1, 1);
     lcd_print("   ");  // Limpiar valor anterior
     lcd_setCursor(1, 1);
-    itoa(potenciometro, buffer, 10);
+    itoa(potencia_agente, buffer, 10);
     lcd_print(buffer);
     lcd_print("%");
 
@@ -746,50 +746,6 @@ Función auxiliar para activar y configurar potencia del agente calefactor
 TO DO
 */
 
-/*
-Función para calcular el PID
-*/
-double calcular_PID(double input, double setpoint) {
-  unsigned long now = millis();
-  double timeChange = (double)(now - last_pid_time);
-
-  // Evitar cálculos demasiado rápidos
-  if (timeChange < 200) return potencia_agente;
-
-  double error = setpoint - input;
-
-  // --- MEJORA 1: Ventana de Integración ---
-  // Solo acumulamos error (memoria) si estamos cerca del objetivo (ej. +- 3 grados)
-  // Si estamos muy lejos, no tiene sentido acumular, solo queremos potencia máxima.
-  if (abs(error) < 3.0) {
-    error_acumulado += (error * timeChange);
-  } else {
-    error_acumulado = 0;  // Si nos alejamos mucho, borramos memoria para reaccionar rápido
-  }
-
-  // --- MEJORA 2: Anti-Windup Estricto ---
-  // Limitamos la memoria para que no supere el 100% de potencia por sí sola
-  // Asumiendo un Ki de aprox 2.0-5.0, limitamos el acumulado.
-  double max_integral = 100.0 / Ki;
-  if (error_acumulado > max_integral) error_acumulado = max_integral;
-  if (error_acumulado < -max_integral) error_acumulado = -max_integral;
-
-  double error_derivado = (error - error_anterior) / timeChange;
-
-  double output = (Kp * error) + (Ki * error_acumulado) + (Kd * error_derivado);
-
-  error_anterior = error;
-  last_pid_time = now;
-
-  // --- MEJORA 3: Corte por seguridad ---
-  // Si nos hemos pasado de la temperatura, el PID bajará,
-  // pero aseguramos que el output no sea negativo ni > 100.
-  if (output > 100) output = 100;
-  if (output < 0) output = 0;
-
-  return output;
-}
-
 void activar_agente_calefactor(float porcentaje) {
   // Limitamos el rango por seguridad
   if (porcentaje < 0)
@@ -805,26 +761,43 @@ void activar_agente_calefactor(float porcentaje) {
 }
 
 void cruce_por_cero_isr() {
+  // --- CAMBIO 1: FILTRO DE RUIDO (Debounce) ---
+  // El audio sugiere ignorar los pulsos espurios tras el primer cruce.
+  // Usamos una variable estática para recordar el tiempo del último disparo válido.
+  static unsigned long last_interrupt_time = 0;
+  unsigned long current_time = micros();
+  
+  // Si han pasado menos de 5ms desde la última interrupción, es ruido (el semiciclo dura 10ms).
+  // Ignoramos esta falsa alarma y salimos.
+  if (current_time - last_interrupt_time < 5000) {
+    return; 
+  }
+  last_interrupt_time = current_time;
+
   // SEGURIDAD: Si la potencia es 0, apagamos el Triac y salimos.
   if (potencia_agente <= 0) {
     cbi(PORTD, PORTD1);   // Pone en LOW (0V) el Pin 2 -> J1 no recibe corriente
     cbi(TIMSK1, OCIE1A);  // Apagar Timer
-    // -> Apagado
     return;
   }
-
+  
   if (potencia_agente >= 100) {
     sbi(PORTD, PORTD1);  // Pin 2 HIGH constante
-    cbi(TIMSK1, OCIE1A);
+    cbi(TIMSK1, OCIE1A); 
     return;
   }
-
-  // Calculamos el retardo en "Ticks" del reloj
-  // Prescaler 64 -> 1 tick = 4 microsegundos
-  // 10ms (ciclo completo) = 2500 ticks aprox
-  // Map: 0-100% -> 2300-50 ticks
-  int ticks = map(potencia_agente, 1, 99, 2375, 375);
-
+  
+  // --- CAMBIO 2: CORRECCIÓN DEL DESFASE (1.8 ms) ---
+  // El audio indica disparar entre 1.8 ms y 9.5 ms.
+  // 1.8 ms = 1800 µs. Con prescaler 64 (4 µs/tick) -> 1800 / 4 = 450 ticks.
+  // Antes tenías 375 (1.5 ms), que es demasiado pronto.
+  
+  TCNT1 = 0; // Reset del contador
+  
+  // Map: 1% (mínima potencia) -> 9.5ms (2375 ticks)
+  // Map: 99% (máxima potencia) -> 1.8ms (450 ticks)
+  int ticks = map(potencia_agente, 1, 99, 2375, 450); 
+  
   OCR1A = ticks;        // Establecemos la meta
   sbi(TIFR1, OCF1A);    // Limpiamos banderas pendientes
   sbi(TIMSK1, OCIE1A);  // Habilitamos la interrupción del Timer
