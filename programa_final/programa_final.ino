@@ -94,6 +94,7 @@ PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 float temperatura = 0.0;
 float temperatura_objetivo = 25.0;  // Temperatura que queremos alcanzar
 static unsigned long last_slow_task = 0;
+static unsigned long last_temperature_check = 0;
 double error_acumulado = 0;
 double error_anterior = 0;
 unsigned long last_pid_time = 0;
@@ -267,14 +268,10 @@ void Teclado_libre() {
   }
 }
 int Leer_teclado_serial() {
-  // 1. Preguntamos si hay datos esperando en el cable USB
   if (Serial.available() > 0) {
 
-    // 2. Leemos el carácter enviado
     char tecla = Serial.read();
 
-    // 3. Convertimos la letra (wasd) al código de botón del Arduino
-    // Aceptamos tanto minúsculas como mayúsculas
     switch (tecla) {
       case 'w':
       case 'W':
@@ -282,7 +279,7 @@ int Leer_teclado_serial() {
 
       case 's':
       case 'S':
-        return btnDOWN;  // ¡Ahora sí funcionará el botón abajo!
+        return btnDOWN;  
 
       case 'a':
       case 'A':
@@ -294,25 +291,21 @@ int Leer_teclado_serial() {
 
       case 'e':
       case 'E':
-        return btnSELECT;  // Usamos 'e' para enter/aceptar
+        return btnSELECT;  
 
       default:
-        // Si llega un carácter raro (como un salto de línea), lo ignoramos
         return btnNONE;
     }
   }
 
-  // Si no se ha enviado nada por el puerto serie, devolvemos NONE
   return btnNONE;
 }
 
 void esperar_soltar() {
-  // Mientras el valor analógico sea bajo (botón pulsado), esperamos
   while (analogRead(A0) < 800) {
     delay(10);
-    Serial.println("estamos esperando a soltar");
   }
-  delay(20); // Un extra para evitar el rebote al soltar
+  delay(20); 
 }
 
 int Leer_teclado() {
@@ -324,7 +317,6 @@ int Leer_teclado() {
   if (valor < media(v5, v6)) {
     boton = encontrar_tecla(valor);
     while (fi > 0) {
-      Serial.println("Estamos en el bucle de leer el teclado");
       if (boton == encontrar_tecla(analogRead(A0))) {
         fi--;
       } else {
@@ -472,6 +464,7 @@ por el sensor y porcentaje de funcionamiento del agente calefactor. TO DO
 */
 void print_dPOTENCIOMETRO(bool first_time) {
   if (first_time) {
+    lcd_clear();
     lcd_setCursor(0, 0);
     lcd_print(arr_comando[cPOTENCIOMETRO]);
   } else {
@@ -519,7 +512,6 @@ void comando_TEMPERATURA() {
   bool configurado = false;
   float temp = temperatura_objetivo;
   while (!configurado) {
-    Serial.println("Estamos en el bucle de configurar la temperatura");
     boton = Leer_teclado();
     esperar_soltar();
     if (boton == btnUP) {
@@ -600,7 +592,6 @@ void comando_PARAMETROS() {
 
   lcd_clear();
   while (!salir) {
-    Serial.println("Estamos en el bucle de configurar los parámetros");
     // Mostrar parámetro actual
     lcd_setCursor(0, 0);
     if (parametro_seleccionado == 0)
@@ -626,17 +617,18 @@ void comando_PARAMETROS() {
     lcd_print("UP/DW:Val SEL:Ok");
 
     int boton = Leer_teclado();
+    esperar_soltar();
 
     if (boton == btnUP) {
       if (parametro_seleccionado == 0)
-        Kp += 0.1;
+        Kp += 1.0;
       else if (parametro_seleccionado == 1)
         Ki += 0.1;
       else
         Kd += 0.1;
     } else if (boton == btnDOWN) {
       if (parametro_seleccionado == 0)
-        Kp -= 0.1;
+        Kp -= 1.0;
       else if (parametro_seleccionado == 1)
         Ki -= 0.1;
       else
@@ -820,13 +812,15 @@ void loop() {
   if (boton_leido != btnNONE) {
     boton = boton_leido;
   }
+  if (millis() - last_temperature_check > 300) {
+    leer_temperatura_pin_a1();
+    last_temperature_check = millis();
+  }
   if (millis() - last_slow_task > 50) {
     esperar_soltar();
     last_slow_task = millis();
     Input = temperatura;
     Setpoint = temperatura_objetivo;
-
-    leer_temperatura_pin_a1();
 
     if (pantalla == pDISPLAY) {
       if (boton == btnSELECT) {
